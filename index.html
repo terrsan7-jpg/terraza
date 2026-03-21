@@ -2192,33 +2192,33 @@ function renderDashboard() {
     if (gqEl) gqEl.innerHTML = `<div style="color:var(--muted);font-size:13px;">No goals yet.</div>`;
     return;
   }
-  document.querySelector(‘#page-dashboard .page-subtitle’).textContent = "Here’s how you’re tracking this month";
-  document.getElementById(‘dash-title’).textContent = `${m.name} ${m.year}`;
+  document.querySelector('#page-dashboard .page-subtitle').textContent = "Here's how you're tracking this month";
+  document.getElementById('dash-title').textContent = `${m.name} ${m.year}`;
 
   // Today banner date + streak
-  const _todayEl = document.getElementById(‘dash-today-date’);
-  if (_todayEl) _todayEl.textContent = new Date().toLocaleDateString(‘en-US’, {weekday:’long’, month:’long’, day:’numeric’});
-  const _streakEl = document.getElementById(‘dash-streak-val’);
+  const _todayEl = document.getElementById('dash-today-date');
+  if (_todayEl) _todayEl.textContent = new Date().toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
+  const _streakEl = document.getElementById('dash-streak-val');
   if (_streakEl) _streakEl.textContent = computeStreakDays(m);
 
   // Stats
   const weeksLogged = m.weeks.filter(w => w && w.thoughts).length;
-  document.getElementById(‘stat-weeks’).textContent = weeksLogged;
+  document.getElementById('stat-weeks').textContent = weeksLogged;
   // Migrate & Stats
-  [‘primaryGoals’,’secondaryGoals’].forEach(key => {
-    m[key] = (m[key]||[]).map(g => typeof g === ‘string’ ? {text:g,done:false} : g);
+  ['primaryGoals','secondaryGoals'].forEach(key => {
+    m[key] = (m[key]||[]).map(g => typeof g === 'string' ? {text:g,done:false} : g);
   });
   const allGoalObjs = [...m.primaryGoals.filter(g=>g.text), ...m.secondaryGoals.filter(g=>g.text)];
-  document.getElementById(‘stat-goals’).textContent = allGoalObjs.length;
+  document.getElementById('stat-goals').textContent = allGoalObjs.length;
 
   // Goals done stat card
   const doneGoalsCount = allGoalObjs.filter(g => g.done).length;
-  const _gdEl = document.getElementById(‘stat-goals-done’);
+  const _gdEl = document.getElementById('stat-goals-done');
   if (_gdEl) _gdEl.textContent = doneGoalsCount;
-  const _gdSub = document.getElementById(‘stat-goals-done-sub’);
-  if (_gdSub) _gdSub.textContent = `of ${allGoalObjs.length} goal${allGoalObjs.length !== 1 ? ‘s’ : ‘’}`;
-  const _gdBar = document.getElementById(‘stat-goals-bar-fill’);
-  if (_gdBar) _gdBar.style.width = allGoalObjs.length > 0 ? Math.round(doneGoalsCount / allGoalObjs.length * 100) + ‘%’ : ‘0%’;
+  const _gdSub = document.getElementById('stat-goals-done-sub');
+  if (_gdSub) _gdSub.textContent = `of ${allGoalObjs.length} goal${allGoalObjs.length !== 1 ? 's' : ''}`;
+  const _gdBar = document.getElementById('stat-goals-bar-fill');
+  if (_gdBar) _gdBar.style.width = allGoalObjs.length > 0 ? Math.round(doneGoalsCount / allGoalObjs.length * 100) + '%' : '0%';
 
   // Tasks done today
   const todayIdx = getTodayIndex();
@@ -2227,9 +2227,9 @@ function renderDashboard() {
   if (todayTodo) {
     const linkedDone = Object.values(todayTodo.linked || {}).filter(Boolean).length;
     const extraDone = (todayTodo.extra || []).filter(t => t.done).length;
-    document.getElementById(‘stat-habit’).textContent = linkedDone + extraDone;
+    document.getElementById('stat-habit').textContent = linkedDone + extraDone;
   } else {
-    document.getElementById(‘stat-habit’).textContent = ‘0’;
+    document.getElementById('stat-habit').textContent = '0';
   }
 
   // Week bars
