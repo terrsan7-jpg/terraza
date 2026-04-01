@@ -117,7 +117,11 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   html.light .mobile-month-bar select option { background: #fff; color: #1a1a2e; }
   html.light .modal { background: #fff; border-color: var(--border); }
   html.light .modal h3 { color: var(--dark); }
-  html.light input, html.light textarea, html.light select { color: var(--dark); }
+  html.light .form-field input,
+  html.light .form-field textarea,
+  html.light .form-field select { background: var(--surface-2); color: var(--dark); border-color: var(--border); }
+  html.light .goal-item input[type="text"] { background: var(--surface-2); color: var(--dark); border-color: var(--border); }
+  html.light .inline-item textarea { background: var(--surface-2); color: var(--dark); border-color: var(--border); }
   html.light #more-drawer { background: var(--panel); border-top-color: var(--border); }
   html.light .wg-form-toggle { border-color: var(--border); background: var(--surface); }
   html.light .wg-form-toggle:hover { border-color: var(--gold); background: rgba(8,145,178,0.04); }
