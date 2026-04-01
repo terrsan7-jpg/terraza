@@ -70,6 +70,61 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
     --font-body: 'DM Sans', sans-serif;
   }
 
+  /* ── LIGHT THEME ── */
+  html.light {
+    --cream: #F5F5F0;
+    --dark: #1A1A2E;
+    --panel: #FFFFFF;
+    --brown: #0891B2;
+    --brown-light: #0E7490;
+    --gold: #0891B2;
+    --light: #E8E8E0;
+    --border: rgba(0,0,0,0.1);
+    --muted: #6B7280;
+    --green: #059669;
+    --red: #DC2626;
+    --blue: #6366F1;
+    --surface: #FFFFFF;
+    --surface-2: #F0F0EA;
+    --orange: #EA580C;
+    --purple: #D97706;
+    --glow: rgba(8,145,178,0.08);
+  }
+  html.light body { background: var(--cream); color: var(--dark); }
+  html.light .sidebar { background: var(--panel); border-right: 1px solid var(--border); }
+  html.light .nav-item { color: #888; }
+  html.light .nav-item:hover { color: #333; background: rgba(0,0,0,0.04); }
+  html.light .nav-item.active { color: var(--dark); border-left-color: var(--gold); background: rgba(8,145,178,0.08); }
+  html.light .nav-section-label { color: #aaa; }
+  html.light .logo-t { color: var(--dark); }
+  html.light .logo-frame { border-color: var(--gold); background: rgba(8,145,178,0.06); }
+  html.light .logo-sub { color: rgba(8,145,178,0.5); }
+  html.light .logo-t span:first-child { border-right-color: rgba(0,0,0,0.25); }
+  html.light .month-selector label { color: rgba(0,0,0,0.4); }
+  html.light .month-selector select { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.12); color: var(--dark); }
+  html.light .month-selector select option { background: #fff; color: #1a1a2e; }
+  html.light .card { background: var(--surface); border-color: var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  html.light .card:hover { box-shadow: 0 0 0 1px rgba(8,145,178,0.3), 0 8px 24px rgba(0,0,0,0.08); }
+  html.light .stat-card { background: var(--surface); border-color: var(--border); }
+  html.light .stat-card:hover { box-shadow: 0 0 0 1px var(--gold), 0 8px 20px rgba(0,0,0,0.1); }
+  html.light .bottom-nav { background: var(--panel); border-top: 1px solid var(--border); }
+  html.light .bottom-nav-item { color: #999; }
+  html.light .bottom-nav-item.active { color: var(--gold); }
+  html.light .bottom-nav-item:hover { color: #555; }
+  html.light .mobile-month-bar { background: var(--panel); }
+  html.light .mobile-month-bar label { color: rgba(0,0,0,0.4); }
+  html.light .mobile-month-bar select { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.12); color: var(--dark); }
+  html.light .mobile-month-bar select option { background: #fff; color: #1a1a2e; }
+  html.light .modal { background: #fff; border-color: var(--border); }
+  html.light .modal h3 { color: var(--dark); }
+  html.light input, html.light textarea, html.light select { color: var(--dark); }
+  html.light #more-drawer { background: var(--panel); border-top-color: var(--border); }
+  html.light .wg-form-toggle { border-color: var(--border); background: var(--surface); }
+  html.light .wg-form-toggle:hover { border-color: var(--gold); background: rgba(8,145,178,0.04); }
+  html.light .wg-day-btn { border-color: var(--border); background: var(--surface); color: var(--muted); }
+  html.light .wg-day-btn.selected { background: var(--gold); border-color: var(--gold); color: #fff; }
+  html.light .toast { background: #333; color: #fff; }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
   
   body {
@@ -1284,6 +1339,46 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
     color: var(--gold);
   }
 
+  /* ── THEME TOGGLE ── */
+  .theme-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    margin-top: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .theme-toggle-track {
+    width: 36px; height: 20px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    position: relative;
+    transition: background 0.25s;
+    flex-shrink: 0;
+  }
+  .theme-toggle-thumb {
+    width: 16px; height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px; left: 2px;
+    transition: transform 0.25s, background 0.25s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    line-height: 1;
+  }
+  .theme-toggle-thumb::after { content: '🌙'; font-size: 9px; }
+  html.light .theme-toggle-track { background: rgba(0,0,0,0.15); }
+  html.light .theme-toggle-thumb { transform: translateX(16px); background: var(--gold); }
+  html.light .theme-toggle-thumb::after { content: '☀️'; font-size: 9px; }
+  .theme-toggle-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
   /* ── BOTTOM NAV DARK ── */
   .bottom-nav { background: var(--panel); border-top: 1px solid rgba(255,255,255,0.04); }
   .bottom-nav-item { color: #444; }
@@ -1344,6 +1439,13 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
     </div>
     <div class="nav-item" onclick="showPage('export')" data-page="export">
       <span class="nav-icon">↗</span> Export PPTX
+    </div>
+
+    <div class="theme-toggle" onclick="toggleTheme()" title="Switch light/dark theme">
+      <div class="theme-toggle-track">
+        <div class="theme-toggle-thumb"></div>
+      </div>
+      <span class="theme-toggle-label" id="theme-label">Dark</span>
     </div>
 
     <div class="month-selector">
@@ -1942,6 +2044,14 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
       <span class="bottom-nav-icon">↗</span>Export
     </button>
   </div>
+  <div style="display:flex;justify-content:center;padding:6px 0 2px;border-top:1px solid var(--border);margin-top:4px;">
+    <div class="theme-toggle" onclick="toggleTheme()" style="padding:6px 12px;">
+      <div class="theme-toggle-track">
+        <div class="theme-toggle-thumb"></div>
+      </div>
+      <span class="theme-toggle-label theme-label-mobile">Dark</span>
+    </div>
+  </div>
 </div>
 <!-- Drawer backdrop -->
 <div id="more-backdrop" onclick="toggleMoreDrawer()" style="
@@ -2023,6 +2133,39 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
 </div>
 
 <script>
+// ═══════════════════════════════════════════
+// THEME TOGGLE (light / dark)
+// ═══════════════════════════════════════════
+function toggleTheme() {
+  const isLight = document.documentElement.classList.toggle('light');
+  localStorage.setItem('terraza-theme', isLight ? 'light' : 'dark');
+  updateThemeLabels(isLight);
+  // Update meta theme-color for mobile browser chrome
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', isLight ? '#F5F5F0' : '#0A0A0A');
+}
+
+function updateThemeLabels(isLight) {
+  const label = isLight ? 'Light' : 'Dark';
+  const el = document.getElementById('theme-label');
+  if (el) el.textContent = label;
+  document.querySelectorAll('.theme-label-mobile').forEach(e => e.textContent = label);
+}
+
+// Restore saved theme on load (before paint)
+(function() {
+  const saved = localStorage.getItem('terraza-theme');
+  if (saved === 'light') {
+    document.documentElement.classList.add('light');
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', '#F5F5F0');
+  }
+  // Labels updated after DOM ready
+  document.addEventListener('DOMContentLoaded', function() {
+    updateThemeLabels(document.documentElement.classList.contains('light'));
+  });
+})();
+
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 // Returns array of week objects: { weekNum, start: Date, end: Date, days: [Date x7] }
