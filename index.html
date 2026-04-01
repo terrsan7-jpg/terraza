@@ -128,6 +128,7 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   html.light .wg-day-btn { border-color: var(--border); background: var(--surface); color: var(--muted); }
   html.light .wg-day-btn.selected { background: var(--gold); border-color: var(--gold); color: #fff; }
   html.light .toast { background: #333; color: #fff; }
+  html.light { --cal-fill-green: rgba(5,150,105,0.25); --cal-fill-cyan: rgba(8,145,178,0.25); --cal-fill-red: rgba(220,38,38,0.2); }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
   
@@ -2229,8 +2230,18 @@ function loadData() {
   return { months: {}, activeMonth: null };
 }
 
+let _saveTimer = null;
 function saveData() {
+  // Immediate save for critical actions (toggles, deletes, creates)
+  // Debounced via saveDataDebounced() for text input
+  if (_saveTimer) clearTimeout(_saveTimer);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+}
+function saveDataDebounced() {
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+  }, 500);
 }
 
 function getMonthKey(name, year) { return `${name}_${year}`; }
@@ -2403,29 +2414,31 @@ function switchMonth(key) {
 function computeStreakDays(m) {
   if (!m || !m.todo) return 0;
   const weeks = getMonthWeeks(m.name, m.year);
+
+  // Build a date → {wi, di} lookup map (O(n) instead of O(n²))
+  const dateMap = {};
+  for (let wi = 0; wi < weeks.length; wi++) {
+    if (!weeks[wi] || !weeks[wi].days) continue;
+    for (let di = 0; di < 7; di++) {
+      const dayDate = weeks[wi].days[di];
+      if (!dayDate) continue;
+      const key = `${dayDate.getFullYear()}-${dayDate.getMonth()}-${dayDate.getDate()}`;
+      dateMap[key] = { wi, di };
+    }
+  }
+
   let streak = 0;
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   for (let attempt = 0; attempt < 35; attempt++) {
-    let dayDone = false;
-    for (let wi = 0; wi < weeks.length; wi++) {
-      if (!weeks[wi] || !weeks[wi].days) continue;
-      for (let di = 0; di < 7; di++) {
-        const dayDate = weeks[wi].days[di];
-        if (!dayDate) continue;
-        const dd = new Date(dayDate);
-        dd.setHours(0, 0, 0, 0);
-        if (dd.getTime() === d.getTime()) {
-          const dayData = m.todo[wi] && m.todo[wi][di];
-          if (dayData) {
-            const linkedDone = Object.values(dayData.linked || {}).filter(Boolean).length;
-            const extraDone = (dayData.extra || []).filter(t => t.done).length;
-            if (linkedDone + extraDone > 0) dayDone = true;
-          }
-        }
-      }
-    }
-    if (!dayDone) break;
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const entry = dateMap[key];
+    if (!entry) break;
+    const dayData = m.todo[entry.wi] && m.todo[entry.wi][entry.di];
+    if (!dayData) break;
+    const linkedDone = Object.values(dayData.linked || {}).filter(Boolean).length;
+    const extraDone = (dayData.extra || []).filter(t => t.done).length;
+    if (linkedDone + extraDone === 0) break;
     streak++;
     d.setDate(d.getDate() - 1);
   }
@@ -2536,7 +2549,9 @@ function renderDashboard() {
   // Week bars
   const wbEl = document.getElementById('week-bars');
   if (!wbEl) return;
-  const weekFills = [0,1,2,3].map(i => {
+  const numWeeks = getMonthWeeks(m.name, m.year).length;
+  const weekIndices = Array.from({length: numWeeks}, (_, i) => i);
+  const weekFills = weekIndices.map(i => {
     const w = m.weeks[i];
     // A week only counts if it has at least one manually written field with real content.
     // Auto-synced thoughts/challenges from daily journal don't count as "reviewed".
@@ -2554,8 +2569,10 @@ function renderDashboard() {
         if (w[cat] && w[cat][c] && w[cat][c].trim()) filled++;
       });
     });
-    if (w.thoughts && w.thoughts.trim()) filled++; total++;
-    if (w.actions && w.actions.trim()) filled++; total++;
+    total++;
+    if (w.thoughts && w.thoughts.trim()) filled++;
+    total++;
+    if (w.actions && w.actions.trim()) filled++;
     return Math.round(filled/total*100);
   });
 
@@ -2633,7 +2650,7 @@ function renderDashboard() {
         ${[...m.primaryGoals.filter(g=>g.text).map((g,i)=>({...g,pri:true,type:'primary',idx:i})), ...m.secondaryGoals.filter(g=>g.text).map((g,i)=>({...g,pri:false,type:'secondary',idx:i}))].map(({text,done,pri,type,idx}) => `
           <div onclick="toggleGoalDoneFromDash('${type}',${idx})" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 14px;background:${done?'var(--green)':'var(--surface-2)'};border-radius:8px;border:1px solid ${done?'var(--green)':'var(--border)'};transition:all 0.15s;">
             <div style="width:14px;height:14px;border-radius:4px;background:${done?'rgba(0,0,0,0.2)':'transparent'};border:2px solid ${done?'#111':pri?'var(--gold)':'var(--muted)'};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:${done?'#111':'#fff'};">${done?'✓':''}</div>
-            <span style="font-size:13px;${done?'color:#111;font-weight:600;':''}">${text}</span>
+            <span style="font-size:13px;${done?'color:#111;font-weight:600;':''}">${escHtml(text)}</span>
             <span style="margin-left:auto;font-size:10px;color:${done?'rgba(0,0,0,0.5)':'var(--muted)'};font-weight:600;white-space:nowrap;">${pri?'PRIMARY':'SECONDARY'}</span>
           </div>`).join('')}
       </div>`;
@@ -2658,6 +2675,7 @@ function closeMoreDrawer() {
 
 function toggleGoalDoneFromDash(type, idx) {
   const m = getActiveMonth();
+  if (!m) return;
   const goal = m[`${type}Goals`][idx];
   if (goal) {
     goal.done = !goal.done;
@@ -3049,37 +3067,42 @@ function syncDailyJournalToWeekly() {
   const CATS = ['health','personal','relationships','finance'];
   const CAT_EL = { health:'wr-well-health', personal:'wr-well-personal', relationships:'wr-well-relationships', finance:'wr-well-finance' };
 
+  // Merge daily entries INTO weekly fields without overwriting manual edits.
+  // Strategy: gather all daily lines, then add any that aren't already in the weekly field.
   CATS.forEach(cat => {
-    const allLines = [];
+    const dailyLines = [];
     for (let di = 0; di < 7; di++) {
       const txt = (m.todo[currentTodoWeek]?.[di]?.well?.[cat] || '').trim();
-      if (txt) txt.split('\n').forEach(l => { l = l.trim(); if (l && !allLines.includes(l)) allLines.push(l); });
+      if (txt) txt.split('\n').forEach(l => { l = l.trim(); if (l && !dailyLines.includes(l)) dailyLines.push(l); });
     }
-    week.well[cat] = allLines.join('\n');
+    const existing = (week.well[cat] || '').split('\n').map(l => l.trim()).filter(Boolean);
+    const merged = [...existing];
+    dailyLines.forEach(l => { if (!merged.includes(l)) merged.push(l); });
+    week.well[cat] = merged.join('\n');
     const el = document.getElementById(CAT_EL[cat]);
     if (el) el.value = week.well[cat];
   });
 
-  const challengeLines = [];
+  const challengeDaily = [];
   for (let di = 0; di < 7; di++) {
     const txt = (m.todo[currentTodoWeek]?.[di]?.didwrong || '').trim();
-    if (txt) txt.split('\n').forEach(l => { l = l.trim(); if (l && !challengeLines.includes(l)) challengeLines.push(l); });
+    if (txt) txt.split('\n').forEach(l => { l = l.trim(); if (l && !challengeDaily.includes(l)) challengeDaily.push(l); });
   }
-  week.challenges = challengeLines.join('\n');
+  const existingChallenges = (week.challenges || '').split('\n').map(l => l.trim()).filter(Boolean);
+  challengeDaily.forEach(l => { if (!existingChallenges.includes(l)) existingChallenges.push(l); });
+  week.challenges = existingChallenges.join('\n');
   const wrCh = document.getElementById('wr-challenges');
   if (wrCh) wrCh.value = week.challenges;
 
-  // Sync daily reflections → weekly Thoughts
-  // Each day's reflection is prefixed with the day name so context is preserved
+  // Sync daily reflections → weekly Thoughts (merge, don't overwrite)
   const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const reflectionParts = [];
   for (let di = 0; di < 7; di++) {
     const txt = (m.todo[currentTodoWeek]?.[di]?.reflection || '').trim();
     if (txt) reflectionParts.push(`${DAY_NAMES[di]}: ${txt}`);
   }
-  week.thoughts = reflectionParts.join('\n');
-  const wrThoughts = document.getElementById('wr-thoughts');
-  if (wrThoughts) wrThoughts.value = week.thoughts;
+  const existingThoughts = (week.thoughts || '').split('\n').map(l => l.trim()).filter(Boolean);
+  reflectionParts.forEach(l => { if (!existingThoughts.includes(l)) existingThoughts.push(l); });
 
   // Sync daily gratitude → appended to weekly Thoughts as a gratitude block
   const gratitudeParts = [];
@@ -3088,10 +3111,17 @@ function syncDailyJournalToWeekly() {
     if (txt) gratitudeParts.push(`${DAY_NAMES[di]}: ${txt}`);
   }
   if (gratitudeParts.length) {
-    const gratitudeBlock = '\n— Gratitude —\n' + gratitudeParts.join('\n');
-    week.thoughts = (week.thoughts ? week.thoughts + gratitudeBlock : gratitudeBlock.trim());
-    if (wrThoughts) wrThoughts.value = week.thoughts;
+    const marker = '— Gratitude —';
+    // Remove old gratitude block if present
+    const markerIdx = existingThoughts.indexOf(marker);
+    if (markerIdx !== -1) existingThoughts.splice(markerIdx);
+    existingThoughts.push(marker);
+    gratitudeParts.forEach(l => { if (!existingThoughts.includes(l)) existingThoughts.push(l); });
   }
+
+  week.thoughts = existingThoughts.join('\n');
+  const wrThoughts = document.getElementById('wr-thoughts');
+  if (wrThoughts) wrThoughts.value = week.thoughts;
 
   saveData();
 }
@@ -3214,10 +3244,11 @@ function toggleExtraTodo(i) {
 
 function updateExtraTodo(i, val) {
   const m = getActiveMonth();
+  if (!m) return;
   ensureTodo(m);
   if (!m.todo[currentTodoWeek] || !m.todo[currentTodoWeek][currentTodoDay]) return;
   m.todo[currentTodoWeek][currentTodoDay].extra[i].text = val;
-  saveData();
+  saveDataDebounced();
 }
 
 function updateExtraTodoCat(i, val) {
@@ -3240,6 +3271,7 @@ function deleteExtraTodo(i) {
 
 function addTodoItem() {
   const m = getActiveMonth();
+  if (!m) { showToast('Create a month first'); return; }
   ensureTodo(m);
   if (!m.todo[currentTodoWeek] || !m.todo[currentTodoWeek][currentTodoDay]) return;
   m.todo[currentTodoWeek][currentTodoDay].extra.push({ text: '', done: false });
@@ -3307,9 +3339,9 @@ function renderTaskCalendar() {
       if (total > 0 && !isFuture) {
         const pct = Math.round(done / total * 100);
         fillHeight = pct;
-        if (pct >= 70)      { fillColor = 'rgba(52,211,153,0.4)';   numColor = '#34D399'; }
-        else if (pct >= 40) { fillColor = 'rgba(34,211,238,0.4)';   numColor = '#22D3EE'; }
-        else                { fillColor = 'rgba(239,68,68,0.35)';   numColor = '#EF4444'; }
+        if (pct >= 70)      { fillColor = 'var(--cal-fill-green,rgba(52,211,153,0.4))';   numColor = 'var(--green)'; }
+        else if (pct >= 40) { fillColor = 'var(--cal-fill-cyan,rgba(34,211,238,0.4))';    numColor = 'var(--brown)'; }
+        else                { fillColor = 'var(--cal-fill-red,rgba(239,68,68,0.35))';     numColor = 'var(--red)'; }
       }
 
       const fillBar = fillHeight > 0
@@ -3337,13 +3369,13 @@ function renderTaskCalendar() {
   // Legend
   html += `<div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap;align-items:center;">
     <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);">
-      <span style="width:10px;height:10px;border-radius:2px;background:rgba(52,211,153,0.4);display:inline-block;"></span>70–100%
+      <span style="width:10px;height:10px;border-radius:2px;background:var(--cal-fill-green,rgba(52,211,153,0.4));display:inline-block;"></span>70–100%
     </span>
     <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);">
-      <span style="width:10px;height:10px;border-radius:2px;background:rgba(34,211,238,0.4);display:inline-block;"></span>40–69%
+      <span style="width:10px;height:10px;border-radius:2px;background:var(--cal-fill-cyan,rgba(34,211,238,0.4));display:inline-block;"></span>40–69%
     </span>
     <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);">
-      <span style="width:10px;height:10px;border-radius:2px;background:rgba(239,68,68,0.35);display:inline-block;"></span>&lt;40%
+      <span style="width:10px;height:10px;border-radius:2px;background:var(--cal-fill-red,rgba(239,68,68,0.35));display:inline-block;"></span>&lt;40%
     </span>
     <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);">
       <span style="width:10px;height:10px;border-radius:2px;background:var(--light);display:inline-block;"></span>No tasks
@@ -3399,6 +3431,7 @@ function renderGoalList(type, goals) {
 
 function toggleGoalDone(type, idx) {
   const m = getActiveMonth();
+  if (!m) return;
   const goal = m[`${type}Goals`][idx];
   if (typeof goal === 'string') m[`${type}Goals`][idx] = {text: goal, done: true};
   else goal.done = !goal.done;
@@ -3408,13 +3441,16 @@ function toggleGoalDone(type, idx) {
 
 function updateGoal(type, idx, val) {
   const m = getActiveMonth();
+  if (!m) return;
   const goal = m[`${type}Goals`][idx];
   if (typeof goal === 'string') m[`${type}Goals`][idx] = {text: val, done: false};
   else goal.text = val;
+  saveDataDebounced();
 }
 
 function removeGoal(type, idx) {
   const m = getActiveMonth();
+  if (!m) return;
   m[`${type}Goals`].splice(idx, 1);
   saveData();
   renderGoalList(type, m[`${type}Goals`]);
@@ -3422,6 +3458,7 @@ function removeGoal(type, idx) {
 
 function addGoal(type) {
   const m = getActiveMonth();
+  if (!m) { showToast('Create a month first'); return; }
   m[`${type}Goals`].push({text:'', done:false});
   saveData();
   renderGoalList(type, m[`${type}Goals`]);
@@ -3682,13 +3719,21 @@ function getWeekGoalItems() {
   const result = {};
   cats.forEach(cat => {
     const el = document.getElementById(`wg-${cat}`);
-    if (!el) { result[cat] = []; return; }
+    if (!el || !el.querySelector('.wg-item')) {
+      // DOM not rendered — fall back to saved data to avoid corruption
+      const m = getActiveMonth();
+      result[cat] = m?.weeks?.[currentWeekTab]?.goalItems?.[cat] || [];
+      return;
+    }
     result[cat] = [...el.querySelectorAll('.wg-item')].map((row, i) => {
       if (!row) return null;
+      const inp = row.querySelector('.wg-input');
+      const chk = row.querySelector('.wg-check');
+      if (!inp || !chk) return null;
       const days = [...row.querySelectorAll('.wg-day-btn.selected')].map(b => parseInt(b.dataset.day));
       return {
-        text: row.querySelector('.wg-input').value.trim(),
-        done: row.querySelector('.wg-check').classList.contains('checked'),
+        text: inp.value.trim(),
+        done: chk.classList.contains('checked'),
         days
       };
     }).filter(item => item && item.text);
@@ -3744,7 +3789,7 @@ function updateWeekGoalText(cat, idx, val) {
   if (!m.weeks[wi].goalItems[cat]) m.weeks[wi].goalItems[cat] = [];
   if (!m.weeks[wi].goalItems[cat][idx]) m.weeks[wi].goalItems[cat][idx] = {text:'',done:false};
   m.weeks[wi].goalItems[cat][idx].text = val;
-  saveData();
+  saveDataDebounced();
 }
 
 function addWeekGoalItem(cat) {
@@ -4005,22 +4050,17 @@ async function aiCompileWeeklyReview() {
     const linked = d.linked || {};
     const linkedKeys = Object.keys(linked);
     if (linkedKeys.length) {
-      const doneTasks = linkedKeys.filter(k => linked[k]).map(k => {
+      // Parse linked key format: "cat_wWI_IDX" and look up from the correct week
+      function resolveLinkedText(k) {
         const parts = k.split('_w');
         const cat = parts[0];
         const rest = parts[1] ? parts[1].split('_') : [];
         const itemWi = parseInt(rest[0]);
         const idx = parseInt(rest[1]);
-        return (goalItems[cat]?.[idx]?.text) || k;
-      }).filter(Boolean);
-      const notDone = linkedKeys.filter(k => !linked[k]).map(k => {
-        const parts = k.split('_w');
-        const cat = parts[0];
-        const rest = parts[1] ? parts[1].split('_') : [];
-        const itemWi = parseInt(rest[0]);
-        const idx = parseInt(rest[1]);
-        return (goalItems[cat]?.[idx]?.text) || k;
-      }).filter(Boolean);
+        return (m.weeks[itemWi]?.goalItems?.[cat]?.[idx]?.text) || k;
+      }
+      const doneTasks = linkedKeys.filter(k => linked[k]).map(resolveLinkedText).filter(Boolean);
+      const notDone = linkedKeys.filter(k => !linked[k]).map(resolveLinkedText).filter(Boolean);
       if (doneTasks.length) lines.push('Tasks completed: ' + doneTasks.join(', '));
       if (notDone.length) lines.push('Tasks not done: ' + notDone.join(', '));
     }
@@ -4456,7 +4496,9 @@ function handleImport(e) {
   reader.onload = (ev) => {
     try {
       const data = JSON.parse(ev.target.result);
-      Object.assign(appData, data);
+      // Full replace instead of shallow merge so stale months are removed
+      appData.months = data.months || {};
+      appData.activeMonth = data.activeMonth || null;
       saveData();
       buildMonthSelector();
       showPage('dashboard');
