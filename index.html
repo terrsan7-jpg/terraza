@@ -2751,7 +2751,11 @@ function ensureTodo(m) {
       if (d.reflection === undefined) d.reflection = '';
       if (d.gratitude === undefined) d.gratitude = '';
       if (d.special === undefined) d.special = false;
-      if (d.dayStatus === undefined) d.dayStatus = null;
+      if (!d.dayStatus || typeof d.dayStatus !== 'object') {
+        // migrate old string value or null
+        const old = d.dayStatus;
+        d.dayStatus = { sick: old === 'sick', vacation: old === 'vacation' };
+      }
     }
   }
 }
@@ -2786,10 +2790,17 @@ function renderTodo() {
       realDate.getMonth() === new Date().getMonth() &&
       realDate.getFullYear() === new Date().getFullYear()
     );
-    const ds = dayData.dayStatus;
-    const statusIcon = ds === 'sick' ? '<span style="font-size:8px;line-height:1;">🤒</span>' : ds === 'vacation' ? '<span style="font-size:8px;line-height:1;">🏖️</span>' : '';
+    const ds = dayData.dayStatus || {};
+    const isSick = ds.sick || false, isVac = ds.vacation || false;
+    const statusIcon = (isSick && isVac)
+      ? '<span style="font-size:7px;line-height:1;">🤒🏖️</span>'
+      : isSick ? '<span style="font-size:8px;line-height:1;">🤒</span>'
+      : isVac ? '<span style="font-size:8px;line-height:1;">🏖️</span>' : '';
+    const tabBorder = !isActive && (isSick && isVac) ? ' style="border-color:rgba(251,191,36,0.5);"'
+      : !isActive && isSick ? ' style="border-color:rgba(239,68,68,0.4);"'
+      : !isActive && isVac ? ' style="border-color:rgba(34,211,238,0.4);"' : '';
     return `<button class="todo-date-tab ${isActive ? 'active' : ''} ${hasExtra ? 'has-items' : ''} ${isToday ? 'today-tab' : ''}"
-      onclick="switchTodoDay(${i})"${ds === 'sick' && !isActive ? ' style="border-color:rgba(239,68,68,0.4);"' : ''}${ds === 'vacation' && !isActive ? ' style="border-color:rgba(34,211,238,0.4);"' : ''}>
+      onclick="switchTodoDay(${i})"${tabBorder}>
       <span style="display:block;font-size:9px;opacity:0.7;line-height:1.2;">${d}</span>
       <span style="display:block;font-size:13px;font-weight:700;line-height:1.2;">${realDate.getDate()}</span>
       ${statusIcon}
@@ -2891,7 +2902,7 @@ function renderTodoDay() {
     if (el) el.value = dayData.well?.[cat] || '';
   });
   // Update day status buttons
-  updateDayStatusButtons(dayData.dayStatus || null);
+  updateDayStatusButtons(dayData.dayStatus || { sick: false, vacation: false });
   // Update heart button
   const heartBtn = document.getElementById('btn-special-day');
   if (heartBtn) {
@@ -3027,11 +3038,12 @@ function toggleDayStatus(status) {
   ensureTodo(m);
   if (!m.todo[currentTodoWeek] || !m.todo[currentTodoWeek][currentTodoDay]) return;
   const d = m.todo[currentTodoWeek][currentTodoDay];
-  d.dayStatus = d.dayStatus === status ? null : status;
+  d.dayStatus[status] = !d.dayStatus[status];
   saveData();
   updateDayStatusButtons(d.dayStatus);
-  const labels = { sick: '🤒 Marked as sick day', vacation: '🏖️ Marked as vacation day' };
-  showToast(d.dayStatus ? labels[d.dayStatus] : 'Day status cleared');
+  const labels = { sick: '🤒 Sick day marked', vacation: '🏖️ Vacation day marked' };
+  const cleared = { sick: '🤒 Sick cleared', vacation: '🏖️ Vacation cleared' };
+  showToast(d.dayStatus[status] ? labels[status] : cleared[status]);
   if (currentPage === 'dashboard') renderTaskCalendar();
   renderTodo();
 }
@@ -3040,12 +3052,12 @@ function updateDayStatusButtons(status) {
   const sickBtn = document.getElementById('btn-day-sick');
   const vacBtn = document.getElementById('btn-day-vacation');
   if (sickBtn) {
-    sickBtn.style.background = status === 'sick' ? 'rgba(239,68,68,0.15)' : 'none';
-    sickBtn.style.borderColor = status === 'sick' ? 'var(--red)' : 'var(--border)';
+    sickBtn.style.background = status.sick ? 'rgba(239,68,68,0.15)' : 'none';
+    sickBtn.style.borderColor = status.sick ? 'var(--red)' : 'var(--border)';
   }
   if (vacBtn) {
-    vacBtn.style.background = status === 'vacation' ? 'rgba(34,211,238,0.15)' : 'none';
-    vacBtn.style.borderColor = status === 'vacation' ? 'var(--gold)' : 'var(--border)';
+    vacBtn.style.background = status.vacation ? 'rgba(34,211,238,0.15)' : 'none';
+    vacBtn.style.borderColor = status.vacation ? 'var(--gold)' : 'var(--border)';
   }
 }
 
@@ -3389,21 +3401,27 @@ function renderTaskCalendar() {
         : '';
       const title = total > 0 && !isFuture ? `${done}/${total} tasks` : '';
       const isSpecial = m.todo[wi]?.[di]?.special || false;
-      const dayStatus = m.todo[wi]?.[di]?.dayStatus || null;
+      const ds = m.todo[wi]?.[di]?.dayStatus || {};
+      const isSick = ds.sick || false;
+      const isVacation = ds.vacation || false;
       const heartMark = isSpecial
         ? `<span style="position:absolute;top:0px;right:1px;font-size:11px;line-height:1;color:#e05c7a;z-index:2;">♥</span>`
         : '';
-      const statusMark = dayStatus === 'sick'
+      const statusMark = (isSick && isVacation)
+        ? `<span style="position:absolute;top:0px;left:0px;font-size:7px;line-height:1;z-index:2;">🤒🏖️</span>`
+        : isSick
         ? `<span style="position:absolute;top:0px;left:1px;font-size:9px;line-height:1;z-index:2;">🤒</span>`
-        : dayStatus === 'vacation'
+        : isVacation
         ? `<span style="position:absolute;top:0px;left:1px;font-size:9px;line-height:1;z-index:2;">🏖️</span>`
         : '';
-      const statusBorder = dayStatus === 'sick'
+      const statusBorder = (isSick && isVacation)
+        ? 'border:1.5px solid rgba(251,191,36,0.6);'
+        : isSick
         ? 'border:1.5px solid rgba(239,68,68,0.5);'
-        : dayStatus === 'vacation'
+        : isVacation
         ? 'border:1.5px solid rgba(34,211,238,0.5);'
         : '';
-      const statusTitle = dayStatus === 'sick' ? ' 🤒 Sick' : dayStatus === 'vacation' ? ' 🏖️ Vacation' : '';
+      const statusTitle = [isSick ? '🤒 Sick' : '', isVacation ? '🏖️ Vacation' : ''].filter(Boolean).join(' + ');
 
       html += `<td><div class="cal-day ${isToday ? 'cal-today' : ''}" title="${title}${isSpecial ? ' ♥' : ''}${statusTitle}"
         onclick="goToTodoDay(${wi}, ${di})"
