@@ -1545,8 +1545,14 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
             <div class="page-title">To Do List</div>
             <div class="page-subtitle">Daily tasks — pulls from your weekly goals automatically</div>
           </div>
-          <button id="btn-special-day" onclick="toggleSpecialDay()" title="Mark as special day"
-            style="font-size:22px;background:none;border:none;cursor:pointer;padding:4px 8px;transition:transform 0.2s;line-height:1;">♡</button>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <button id="btn-day-sick" onclick="toggleDayStatus('sick')" title="Mark as sick day"
+              style="font-size:16px;background:none;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;padding:4px 8px;transition:all 0.2s;line-height:1;color:var(--muted);font-family:var(--font-body);">🤒</button>
+            <button id="btn-day-vacation" onclick="toggleDayStatus('vacation')" title="Mark as vacation day"
+              style="font-size:16px;background:none;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;padding:4px 8px;transition:all 0.2s;line-height:1;color:var(--muted);font-family:var(--font-body);">🏖️</button>
+            <button id="btn-special-day" onclick="toggleSpecialDay()" title="Mark as special day"
+              style="font-size:22px;background:none;border:none;cursor:pointer;padding:4px 8px;transition:transform 0.2s;line-height:1;">♡</button>
+          </div>
         </div>
       </div>
 
@@ -2745,6 +2751,7 @@ function ensureTodo(m) {
       if (d.reflection === undefined) d.reflection = '';
       if (d.gratitude === undefined) d.gratitude = '';
       if (d.special === undefined) d.special = false;
+      if (d.dayStatus === undefined) d.dayStatus = null;
     }
   }
 }
@@ -2779,10 +2786,13 @@ function renderTodo() {
       realDate.getMonth() === new Date().getMonth() &&
       realDate.getFullYear() === new Date().getFullYear()
     );
+    const ds = dayData.dayStatus;
+    const statusIcon = ds === 'sick' ? '<span style="font-size:8px;line-height:1;">🤒</span>' : ds === 'vacation' ? '<span style="font-size:8px;line-height:1;">🏖️</span>' : '';
     return `<button class="todo-date-tab ${isActive ? 'active' : ''} ${hasExtra ? 'has-items' : ''} ${isToday ? 'today-tab' : ''}"
-      onclick="switchTodoDay(${i})">
+      onclick="switchTodoDay(${i})"${ds === 'sick' && !isActive ? ' style="border-color:rgba(239,68,68,0.4);"' : ''}${ds === 'vacation' && !isActive ? ' style="border-color:rgba(34,211,238,0.4);"' : ''}>
       <span style="display:block;font-size:9px;opacity:0.7;line-height:1.2;">${d}</span>
       <span style="display:block;font-size:13px;font-weight:700;line-height:1.2;">${realDate.getDate()}</span>
+      ${statusIcon}
     </button>`;
   }).join('');
 
@@ -2880,6 +2890,8 @@ function renderTodoDay() {
     const el = document.getElementById(`td-well-${cat}`);
     if (el) el.value = dayData.well?.[cat] || '';
   });
+  // Update day status buttons
+  updateDayStatusButtons(dayData.dayStatus || null);
   // Update heart button
   const heartBtn = document.getElementById('btn-special-day');
   if (heartBtn) {
@@ -3007,6 +3019,34 @@ function pushDailyWellToWeekly(cat) {
 
   const catLabel = TODO_CATS.find(c => c.key === cat)?.label || cat;
   showToast(`Added to Week ${currentTodoWeek + 1} ${catLabel} — Did Well ✓`);
+}
+
+function toggleDayStatus(status) {
+  const m = getActiveMonth();
+  if (!m) return;
+  ensureTodo(m);
+  if (!m.todo[currentTodoWeek] || !m.todo[currentTodoWeek][currentTodoDay]) return;
+  const d = m.todo[currentTodoWeek][currentTodoDay];
+  d.dayStatus = d.dayStatus === status ? null : status;
+  saveData();
+  updateDayStatusButtons(d.dayStatus);
+  const labels = { sick: '🤒 Marked as sick day', vacation: '🏖️ Marked as vacation day' };
+  showToast(d.dayStatus ? labels[d.dayStatus] : 'Day status cleared');
+  if (currentPage === 'dashboard') renderTaskCalendar();
+  renderTodo();
+}
+
+function updateDayStatusButtons(status) {
+  const sickBtn = document.getElementById('btn-day-sick');
+  const vacBtn = document.getElementById('btn-day-vacation');
+  if (sickBtn) {
+    sickBtn.style.background = status === 'sick' ? 'rgba(239,68,68,0.15)' : 'none';
+    sickBtn.style.borderColor = status === 'sick' ? 'var(--red)' : 'var(--border)';
+  }
+  if (vacBtn) {
+    vacBtn.style.background = status === 'vacation' ? 'rgba(34,211,238,0.15)' : 'none';
+    vacBtn.style.borderColor = status === 'vacation' ? 'var(--gold)' : 'var(--border)';
+  }
 }
 
 function toggleSpecialDay() {
@@ -3349,15 +3389,28 @@ function renderTaskCalendar() {
         : '';
       const title = total > 0 && !isFuture ? `${done}/${total} tasks` : '';
       const isSpecial = m.todo[wi]?.[di]?.special || false;
+      const dayStatus = m.todo[wi]?.[di]?.dayStatus || null;
       const heartMark = isSpecial
         ? `<span style="position:absolute;top:0px;right:1px;font-size:11px;line-height:1;color:#e05c7a;z-index:2;">♥</span>`
         : '';
+      const statusMark = dayStatus === 'sick'
+        ? `<span style="position:absolute;top:0px;left:1px;font-size:9px;line-height:1;z-index:2;">🤒</span>`
+        : dayStatus === 'vacation'
+        ? `<span style="position:absolute;top:0px;left:1px;font-size:9px;line-height:1;z-index:2;">🏖️</span>`
+        : '';
+      const statusBorder = dayStatus === 'sick'
+        ? 'border:1.5px solid rgba(239,68,68,0.5);'
+        : dayStatus === 'vacation'
+        ? 'border:1.5px solid rgba(34,211,238,0.5);'
+        : '';
+      const statusTitle = dayStatus === 'sick' ? ' 🤒 Sick' : dayStatus === 'vacation' ? ' 🏖️ Vacation' : '';
 
-      html += `<td><div class="cal-day ${isToday ? 'cal-today' : ''}" title="${title}${isSpecial ? ' ♥' : ''}"
+      html += `<td><div class="cal-day ${isToday ? 'cal-today' : ''}" title="${title}${isSpecial ? ' ♥' : ''}${statusTitle}"
         onclick="goToTodoDay(${wi}, ${di})"
-        style="cursor:pointer;">
+        style="cursor:pointer;${statusBorder}">
         ${fillBar}
         ${heartMark}
+        ${statusMark}
         <span class="cal-day-num" style="color:${total > 0 && !isFuture ? numColor : 'var(--muted)'};">${date.getDate()}</span>
       </div></td>`;
     });
@@ -3379,6 +3432,12 @@ function renderTaskCalendar() {
     </span>
     <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);">
       <span style="width:10px;height:10px;border-radius:2px;background:var(--light);display:inline-block;"></span>No tasks
+    </span>
+    <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);">
+      <span style="font-size:10px;">🤒</span>Sick
+    </span>
+    <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);">
+      <span style="font-size:10px;">🏖️</span>Vacation
     </span>
   </div>`;
 
