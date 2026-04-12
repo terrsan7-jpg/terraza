@@ -1530,6 +1530,12 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
         </div>
       </div>
 
+      <!-- Day Counters -->
+      <div class="card dash-full" id="day-counters-card" style="display:none;">
+        <div class="card-title">Day Counters</div>
+        <div id="day-counters" style="display:flex;gap:10px;flex-wrap:wrap;"></div>
+      </div>
+
       <!-- Goals Quick View -->
       <div class="card dash-full">
         <div class="card-title">Monthly Goals — Quick View</div>
@@ -2550,6 +2556,52 @@ function renderDashboard() {
     document.getElementById('stat-habit').textContent = linkedDone + extraDone;
   } else {
     document.getElementById('stat-habit').textContent = '0';
+  }
+
+  // Day counters
+  const dcCard = document.getElementById('day-counters-card');
+  const dcEl = document.getElementById('day-counters');
+  if (dcCard && dcEl) {
+    ensureTodo(m);
+    const weeks = getMonthWeeks(m.name, m.year);
+    const today = new Date();
+    let sickDays = 0, vacDays = 0, greenDays = 0, yellowDays = 0, redDays = 0, specialDays = 0, noTaskDays = 0;
+    weeks.forEach((week, wi) => {
+      week.days.forEach((date, di) => {
+        if (!date || date > today) return;
+        const d = m.todo[wi]?.[di];
+        if (!d) return;
+        const ds = d.dayStatus || {};
+        if (ds.sick) sickDays++;
+        if (ds.vacation) vacDays++;
+        if (d.special) specialDays++;
+        const { done, total } = getDayTaskCompletion(m, wi, di);
+        if (total > 0) {
+          const p = Math.round(done / total * 100);
+          if (p >= 70) greenDays++;
+          else if (p >= 40) yellowDays++;
+          else redDays++;
+        } else {
+          noTaskDays++;
+        }
+      });
+    });
+    const counters = [
+      { label: 'Green', value: greenDays, color: '#34D399', bg: 'rgba(52,211,153,0.12)' },
+      { label: 'Yellow', value: yellowDays, color: '#22D3EE', bg: 'rgba(34,211,238,0.12)' },
+      { label: 'Red', value: redDays, color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
+      { label: 'No Tasks', value: noTaskDays, color: 'var(--muted)', bg: 'var(--light)' },
+      { label: 'Sick', value: sickDays, color: '#EF4444', bg: 'rgba(239,68,68,0.08)', icon: '🤒' },
+      { label: 'Vacation', value: vacDays, color: '#22D3EE', bg: 'rgba(34,211,238,0.08)', icon: '🏖️' },
+      { label: 'Special', value: specialDays, color: '#e05c7a', bg: 'rgba(224,92,122,0.08)', icon: '♥' },
+    ];
+    dcEl.innerHTML = counters.map(c =>
+      `<div style="flex:1;min-width:80px;background:${c.bg};border-radius:10px;padding:10px 12px;text-align:center;">
+        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${c.color};margin-bottom:4px;font-weight:600;">${c.icon ? c.icon + ' ' : ''}${c.label}</div>
+        <div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:${c.color};">${c.value}</div>
+      </div>`
+    ).join('');
+    dcCard.style.display = 'block';
   }
 
   // Week bars
