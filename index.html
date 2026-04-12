@@ -1590,6 +1590,12 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
               </div>
               <div id="todo-extra-list"></div>
             </div>
+            <hr class="section-divider" style="margin:12px 0 16px;">
+            <div style="text-align:center;">
+              <button class="btn-secondary" onclick="carryToNextDay()" style="font-size:12px;padding:8px 16px;display:inline-flex;align-items:center;gap:6px;">
+                → Carry incomplete to next day
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -3384,6 +3390,91 @@ function addTodoItem() {
   // Focus the new input
   const inputs = document.querySelectorAll('#todo-extra-list .todo-text');
   if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function carryToNextDay() {
+  const m = getActiveMonth();
+  if (!m) return;
+  ensureTodo(m);
+
+  const wi = currentTodoWeek;
+  const di = currentTodoDay;
+  const dayData = m.todo[wi]?.[di];
+  if (!dayData) return;
+
+  // Collect incomplete tasks
+  const incomplete = [];
+
+  // 1. Incomplete linked tasks (from weekly goals)
+  const weeks = getMonthWeeks(m.name, m.year);
+  TODO_CATS.forEach(cat => {
+    for (let wk = 0; wk < weeks.length; wk++) {
+      const items = m.weeks[wk]?.goalItems?.[cat.key] || [];
+      items.forEach((item, idx) => {
+        if (!item.text) return;
+        const days = item.days || [];
+        const key = `${cat.key}_w${wk}_${idx}`;
+        const todoDay = m.todo[wk]?.[di];
+        if (days.includes(di) || (todoDay && todoDay.linked[key] !== undefined)) {
+          const checked = todoDay?.linked?.[key] || false;
+          if (!checked) {
+            incomplete.push({ text: item.text, cat: cat.key });
+          }
+        }
+      });
+    }
+  });
+
+  // 2. Incomplete extra tasks
+  (dayData.extra || []).forEach(task => {
+    if (task.text && !task.done) {
+      incomplete.push({ text: task.text, cat: task.cat || 'none' });
+    }
+  });
+
+  if (!incomplete.length) {
+    showToast('No incomplete tasks to carry over');
+    return;
+  }
+
+  // Find next day
+  let nextWi = wi, nextDi = di + 1;
+  if (nextDi > 6) {
+    nextWi++;
+    nextDi = 0;
+  }
+
+  // Check the next day exists in this month
+  const nextDayDate = weeks[nextWi]?.days?.[nextDi];
+  if (!nextDayDate) {
+    showToast('No next day in this month');
+    return;
+  }
+
+  // Ensure next day data exists
+  if (!m.todo[nextWi]) m.todo[nextWi] = {};
+  if (!m.todo[nextWi][nextDi]) m.todo[nextWi][nextDi] = { extra: [], linked: {} };
+  if (!m.todo[nextWi][nextDi].extra) m.todo[nextWi][nextDi].extra = [];
+
+  // Add incomplete tasks as extras to next day, skip duplicates
+  const existing = m.todo[nextWi][nextDi].extra.map(t => t.text);
+  let added = 0;
+  incomplete.forEach(task => {
+    if (!existing.includes(task.text)) {
+      m.todo[nextWi][nextDi].extra.push({ text: task.text, done: false, cat: task.cat });
+      existing.push(task.text);
+      added++;
+    }
+  });
+
+  if (added === 0) {
+    showToast('Tasks already on next day');
+    return;
+  }
+
+  saveData();
+  const dayLabel = nextDayDate.getDate();
+  showToast(`${added} task${added > 1 ? 's' : ''} carried to day ${dayLabel} →`);
 }
 
 // ═══════════════════════════════════════════
