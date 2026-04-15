@@ -1619,25 +1619,25 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
                   <div class="review-section-head">
                     <span class="cat-tag cat-health">Health</span>
                   </div>
-                  <textarea id="td-well-health" placeholder="Health wins today..." onchange="saveTodoJournal()" oninput="saveTodoJournal()"></textarea>
+                  <textarea id="td-well-health" placeholder="Health wins today..." onchange="saveTodoJournalAndSync()" oninput="saveTodoJournal()"></textarea>
                 </div>
                 <div class="review-section">
                   <div class="review-section-head">
                     <span class="cat-tag cat-personal">Personal Dev</span>
                   </div>
-                  <textarea id="td-well-personal" placeholder="Learning, growth..." onchange="saveTodoJournal()" oninput="saveTodoJournal()"></textarea>
+                  <textarea id="td-well-personal" placeholder="Learning, growth..." onchange="saveTodoJournalAndSync()" oninput="saveTodoJournal()"></textarea>
                 </div>
                 <div class="review-section">
                   <div class="review-section-head">
                     <span class="cat-tag cat-relationships">Relationships</span>
                   </div>
-                  <textarea id="td-well-relationships" placeholder="Connections today..." onchange="saveTodoJournal()" oninput="saveTodoJournal()"></textarea>
+                  <textarea id="td-well-relationships" placeholder="Connections today..." onchange="saveTodoJournalAndSync()" oninput="saveTodoJournal()"></textarea>
                 </div>
                 <div class="review-section">
                   <div class="review-section-head">
                     <span class="cat-tag cat-finance">Finance / Career</span>
                   </div>
-                  <textarea id="td-well-finance" placeholder="Financial wins, work progress..." onchange="saveTodoJournal()" oninput="saveTodoJournal()"></textarea>
+                  <textarea id="td-well-finance" placeholder="Financial wins, work progress..." onchange="saveTodoJournalAndSync()" oninput="saveTodoJournal()"></textarea>
                 </div>
               </div>
             </div>
@@ -1649,7 +1649,7 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
               <div style="margin-bottom:8px;">
                 <div class="card-title" style="margin-bottom:0;">What Didn't Go Well</div>
               </div>
-              <textarea id="td-didwrong" class="thoughts-box" placeholder="What went wrong or could have been better today?" onchange="saveTodoJournal()" oninput="saveTodoJournal()"></textarea>
+              <textarea id="td-didwrong" class="thoughts-box" placeholder="What went wrong or could have been better today?" onchange="saveTodoJournalAndSync()" oninput="saveTodoJournal()"></textarea>
             </div>
 
             <hr class="section-divider" style="margin:4px 0;">
@@ -1657,7 +1657,7 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
             <!-- Reflection -->
             <div>
               <div class="card-title" style="margin-bottom:8px;">Daily Reflection</div>
-              <textarea id="td-reflection" class="thoughts-box" placeholder="How did today feel? What's on your mind?" onchange="saveTodoJournal()" oninput="saveTodoJournal()"></textarea>
+              <textarea id="td-reflection" class="thoughts-box" placeholder="How did today feel? What's on your mind?" onchange="saveTodoJournalAndSync()" oninput="saveTodoJournal()"></textarea>
             </div>
 
             <hr class="section-divider" style="margin:4px 0;">
@@ -1665,7 +1665,7 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
             <!-- Gratitude -->
             <div>
               <div class="card-title" style="margin-bottom:8px;">Gratitude</div>
-              <textarea id="td-gratitude" class="thoughts-box" placeholder="3 things you're grateful for today..." onchange="saveTodoJournal()" oninput="saveTodoJournal()"></textarea>
+              <textarea id="td-gratitude" class="thoughts-box" placeholder="3 things you're grateful for today..." onchange="saveTodoJournalAndSync()" oninput="saveTodoJournal()"></textarea>
             </div>
 
           </div>
@@ -3140,6 +3140,7 @@ function toggleSpecialDay() {
   if (currentPage === 'dashboard') renderTaskCalendar();
 }
 
+let _syncTimer = null;
 function saveTodoJournal() {
   const m = getActiveMonth();
   if (!m) return;
@@ -3160,8 +3161,10 @@ function saveTodoJournal() {
   d.reflection  = getVal('td-reflection');
   d.gratitude   = getVal('td-gratitude');
   saveData();
+}
 
-  // Auto-sync all days' entries for this week into the weekly review
+function saveTodoJournalAndSync() {
+  saveTodoJournal();
   syncDailyJournalToWeekly();
 }
 
