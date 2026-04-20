@@ -3346,9 +3346,10 @@ function autoSyncWeekGoalDone(m, wi, cat, idx) {
     return dayData.linked?.[key] === true;
   });
 
-  // Only update if the state actually needs to change
-  if (item.done !== allDone) {
-    item.done = allDone;
+  // Only auto-CHECK when all scheduled days are done — never auto-UNCHECK
+  // a goal that was manually checked by the user in the weekly review
+  if (allDone && !item.done) {
+    item.done = true;
     // Re-render weekly goal list if we're on the weekly page
     if (currentPage === 'weekly') {
       const items = m.weeks[wi]?.goalItems?.[cat];
