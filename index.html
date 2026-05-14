@@ -3100,23 +3100,23 @@ function renderTodoDay() {
   let anyLinked = false;
 
   TODO_CATS.forEach(cat => {
-    // Search ALL 4 weeks for goals scheduled on this day
+    // Only show goals from the CURRENT viewing week — weekly goals belong
+    // to a specific week. Iterating all weeks caused goals to appear on
+    // every matching weekday across the month and share their checked state.
     const allGoals = [];
-    const weeks = getMonthWeeks(m.name, m.year);
-    for (let wi = 0; wi < weeks.length; wi++) {
-      const items = m.weeks[wi]?.goalItems?.[cat.key] || [];
-      items.forEach((item, idx) => {
-        if (!item.text) return;
-        const days = item.days || [];
-        const todoDay = m.todo[wi]?.[currentTodoDay];
-        // Show if day is scheduled OR manually added to linked
-        if (days.includes(currentTodoDay) ||
-            (todoDay && todoDay.linked[`${cat.key}_w${wi}_${idx}`] !== undefined)) {
-          const key = `${cat.key}_w${wi}_${idx}`;
-          allGoals.push({ text: item.text, idx, wi, days, key });
-        }
-      });
-    }
+    const wi = currentTodoWeek;
+    const items = m.weeks[wi]?.goalItems?.[cat.key] || [];
+    items.forEach((item, idx) => {
+      if (!item.text) return;
+      const days = item.days || [];
+      const todoDay = m.todo[wi]?.[currentTodoDay];
+      // Show if day is scheduled OR manually added to linked
+      if (days.includes(currentTodoDay) ||
+          (todoDay && todoDay.linked[`${cat.key}_w${wi}_${idx}`] !== undefined)) {
+        const key = `${cat.key}_w${wi}_${idx}`;
+        allGoals.push({ text: item.text, idx, wi, days, key });
+      }
+    });
 
     if (!allGoals.length) return;
     anyLinked = true;
