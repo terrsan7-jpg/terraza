@@ -390,6 +390,16 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   }
   .todo-del { font-size: 14px; color: var(--muted); cursor: pointer; flex-shrink: 0; opacity: 0.4; transition: opacity 0.15s; background: none; border: none; padding: 0 2px; font-family: inherit; }
   .todo-del:hover { opacity: 1; color: var(--red); }
+  .todo-carry-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; flex-shrink: 0;
+    color: var(--muted); cursor: pointer;
+    opacity: 0.45; background: none; border: none; padding: 0;
+    border-radius: 6px;
+    transition: opacity 0.15s, color 0.15s, background 0.15s;
+  }
+  .todo-carry-btn svg { width: 14px; height: 14px; }
+  .todo-carry-btn:hover { opacity: 1; color: var(--gold); background: var(--accent-light); }
   .todo-did-well-btn {
     font-size: 12px; flex-shrink: 0; cursor: pointer;
     background: none; border: 1px solid var(--border);
@@ -3132,6 +3142,7 @@ function renderTodoDay() {
           <div class="todo-check ${checked ? 'checked' : ''}" onclick="toggleLinkedTodo('${cat.key}', ${goal.wi}, ${goal.idx})">${checked ? '✓' : ''}</div>
           <span class="todo-text" style="text-decoration:${checked?'line-through':'none'};color:${checked?'var(--muted)':'var(--dark)'};">${escHtml(goal.text)}</span>
           <button class="todo-did-well-btn" data-cat="${cat.key}" data-text="${escHtml(goal.text)}" data-wi="${goal.wi}" onclick="addToDidWellFromBtn(this)" title="Add to Did Well">👍</button>
+          <button class="todo-carry-btn" data-carry-type="linked" data-carry-arg="${hiddenKey}" data-carry-cat="${cat.key}" onclick="carryTaskFromBtn(this)" title="Move to next day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           <button class="todo-del" onclick="hideLinkedTodo('${hiddenKey}')" title="Hide for today">×</button>
         </div>
       </div>`;
@@ -3306,6 +3317,7 @@ function renderExtraItem(task, i) {
           ${catOpts}
         </select>
         <button class="todo-did-well-btn" data-cat="${catForWell}" data-wi="${currentTodoWeek}" onclick="addToDidWellFromBtn(this)" title="Add to Did Well">👍</button>
+        <button class="todo-carry-btn" data-carry-type="extra" data-carry-arg="${i}" data-carry-cat="${task.cat || 'none'}" onclick="carryTaskFromBtn(this)" title="Move to next day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         <button class="todo-del" onclick="deleteExtraTodo(${i})">×</button>
       </div>
     </div>
@@ -3785,6 +3797,100 @@ function undoCarry() {
   window._lastCarry = null;
   saveData();
   showToast('Carry undone ✓');
+}
+
+// Per-item carry: move a single task to the next day
+function carryTaskFromBtn(btn) {
+  const type = btn.dataset.carryType;
+  const arg = btn.dataset.carryArg;
+  const cat = btn.dataset.carryCat || 'none';
+  const itemEl = btn.closest('.todo-item');
+  if (!itemEl) return;
+  const textEl = itemEl.querySelector('.todo-text');
+  const text = textEl ? (textEl.value !== undefined ? textEl.value : textEl.textContent).trim() : '';
+  if (!text) { showToast('No task text to move'); return; }
+  carryTaskToNextDay(type, arg, cat, text);
+}
+
+function carryTaskToNextDay(type, arg, cat, text) {
+  const m = getActiveMonth();
+  if (!m) return;
+  ensureTodo(m);
+
+  // Find next day
+  const weeks = getMonthWeeks(m.name, m.year);
+  let nextWi = currentTodoWeek, nextDi = currentTodoDay + 1;
+  if (nextDi > 6) { nextWi++; nextDi = 0; }
+  const nextDayDate = weeks[nextWi]?.days?.[nextDi];
+  if (!nextDayDate) { showToast('No next day in this month'); return; }
+
+  // Ensure next day slot
+  if (!m.todo[nextWi]) m.todo[nextWi] = {};
+  if (!m.todo[nextWi][nextDi]) m.todo[nextWi][nextDi] = { extra: [], linked: {} };
+  if (!m.todo[nextWi][nextDi].extra) m.todo[nextWi][nextDi].extra = [];
+
+  // Skip if already on next day
+  if (m.todo[nextWi][nextDi].extra.some(t => t.text === text)) {
+    showToast('Already on next day');
+    return;
+  }
+
+  // Add to next day
+  m.todo[nextWi][nextDi].extra.push({ text, done: false, cat: cat === 'none' ? null : cat });
+
+  // Remove from today
+  let removedExtra = null;
+  if (type === 'extra') {
+    const idx = parseInt(arg);
+    if (!isNaN(idx)) {
+      removedExtra = m.todo[currentTodoWeek][currentTodoDay].extra[idx];
+      m.todo[currentTodoWeek][currentTodoDay].extra.splice(idx, 1);
+    }
+  } else if (type === 'linked') {
+    const d = m.todo[currentTodoWeek][currentTodoDay];
+    if (!d.linkedHidden) d.linkedHidden = {};
+    d.linkedHidden[arg] = true;
+  }
+
+  // Save + render
+  window._lastTaskCarry = {
+    text, cat, type, arg, removedExtra,
+    fromWi: currentTodoWeek, fromDi: currentTodoDay,
+    nextWi, nextDi
+  };
+  saveData();
+  renderTodoDay();
+  showToastWithUndo(`→ Moved to day ${nextDayDate.getDate()}`, undoTaskCarry);
+}
+
+function undoTaskCarry() {
+  if (!window._lastTaskCarry) return;
+  const m = getActiveMonth();
+  if (!m) return;
+  const { text, type, arg, removedExtra, fromWi, fromDi, nextWi, nextDi } = window._lastTaskCarry;
+
+  // Remove from next day
+  if (m.todo[nextWi]?.[nextDi]?.extra) {
+    const i = m.todo[nextWi][nextDi].extra.findIndex(t => t.text === text);
+    if (i !== -1) m.todo[nextWi][nextDi].extra.splice(i, 1);
+  }
+
+  // Restore on source day
+  if (type === 'extra') {
+    if (!m.todo[fromWi][fromDi].extra) m.todo[fromWi][fromDi].extra = [];
+    const idx = parseInt(arg);
+    if (!isNaN(idx) && removedExtra) {
+      m.todo[fromWi][fromDi].extra.splice(idx, 0, removedExtra);
+    }
+  } else if (type === 'linked') {
+    const d = m.todo[fromWi]?.[fromDi];
+    if (d?.linkedHidden) delete d.linkedHidden[arg];
+  }
+
+  window._lastTaskCarry = null;
+  saveData();
+  renderTodoDay();
+  showToast('Move undone');
 }
 
 // ═══════════════════════════════════════════
