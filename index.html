@@ -204,7 +204,8 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   }
   .nav-item:hover { color: var(--text-mid); background: var(--accent-light); padding-left: 20px; }
   .nav-item.active { color: var(--gold); border-left-color: var(--gold); background: var(--accent-light); }
-  .nav-icon { font-size: 11px; width: 16px; text-align: center; }
+  .nav-icon { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .nav-icon svg { width: 15px; height: 15px; }
 
   .nav-section-label {
     font-size: 9px;
@@ -416,6 +417,52 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   .stat-goals-bar { margin-top: 10px; height: 4px; background: var(--light); border-radius: 2px; overflow: hidden; }
   .stat-goals-bar-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.5s ease; }
   .dash-rings-card { margin-bottom: 24px; }
+
+  /* ── DAY COUNTERS ── */
+  .day-counters-group { margin-bottom: 14px; }
+  .day-counters-group:last-child { margin-bottom: 0; }
+  .day-counters-group-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .day-counters-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .day-counters-grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .day-counter-tile {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .day-counter-tile-label {
+    font-size: 10px; font-weight: 600;
+    color: var(--muted);
+    display: flex; align-items: center; gap: 5px;
+    line-height: 1.2;
+  }
+  .day-counter-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .day-counter-icon { font-size: 11px; line-height: 1; }
+  .day-counter-tile-value {
+    font-family: var(--font-body);
+    font-size: 22px; font-weight: 700;
+    color: var(--dark);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  @media (max-width: 480px) {
+    .day-counters-grid { grid-template-columns: repeat(2, 1fr); }
+    .day-counters-grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .day-counter-tile { padding: 9px 10px; }
+    .day-counter-tile-value { font-size: 18px; }
+    .day-counter-tile-label { font-size: 9px; }
+  }
 
   /* ── MONTHLY GOALS FORM ── */
   .goals-form { display: grid; gap: 24px; }
@@ -947,7 +994,9 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   .bottom-nav-item.active { color: var(--gold); border-top-color: transparent; }
   .bottom-nav-item.active .bottom-nav-icon { background: var(--accent-light); border-radius: 10px; padding: 3px 10px; }
   .bottom-nav-item:hover { color: rgba(255,255,255,0.75); }
-  .bottom-nav-icon { font-size: 14px; line-height: 1; transition: all 0.2s; }
+  .bottom-nav-icon { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .bottom-nav-icon svg { width: 20px; height: 20px; }
+  .bottom-nav-item.active .bottom-nav-icon { padding: 3px 14px; }
 
   /* Month selector on mobile — shown in page header area */
   .mobile-month-bar {
@@ -1032,6 +1081,8 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
     transition: max-height 0.35s ease;
   }
   .wg-form-collapsible.open { max-height: 2000px; }
+  .review-accordion { margin-top: 10px; margin-bottom: 0; }
+  .review-accordion + .wg-form-collapsible.open { margin-bottom: 4px; }
 
   /* ── TASK CALENDAR ── */
   .task-cal { border-collapse: collapse; width: 100%; }
@@ -1366,6 +1417,57 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
     color: var(--gold);
   }
 
+  /* ── UNIFIED HERO METRICS CARD ── */
+  .dash-greeting-block { margin-bottom: 18px; }
+  .hero-metrics-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 24px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 22px;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-metrics-card::before {
+    content: '';
+    position: absolute;
+    top: -60%; right: -30%;
+    width: 320px; height: 320px;
+    background: radial-gradient(circle, var(--accent-light) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-metrics-ring {
+    position: relative;
+    width: 120px; height: 120px;
+    flex-shrink: 0;
+    z-index: 1;
+  }
+  .hero-metrics-ring svg { width: 120px; height: 120px; }
+  .hero-metrics-list { flex: 1; min-width: 0; position: relative; z-index: 1; }
+  .hero-metric-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 0; border-bottom: 1px solid var(--border);
+  }
+  .hero-metric-row--last { border-bottom: none; }
+  .hero-metric-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .hero-metric-value { font-size: 15px; font-weight: 700; color: var(--dark); letter-spacing: -0.01em; display: inline-flex; align-items: center; gap: 5px; }
+  .hero-metric-value-sub { font-size: 13px; font-weight: 600; color: var(--text-mid); }
+  .hero-metric-sub-suffix { color: var(--muted); font-weight: 400; }
+  .hero-flame { font-size: 13px; line-height: 1; }
+  .hero-metrics-card .stat-goals-bar { margin-top: 8px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .hero-metrics-card .stat-goals-bar-fill { height: 100%; background: var(--gold); border-radius: 2px; transition: width 0.5s ease; box-shadow: 0 0 4px var(--glow); }
+  @media (max-width: 480px) {
+    .hero-metrics-card { padding: 18px; gap: 14px; }
+    .hero-metrics-ring { width: 96px; height: 96px; }
+    .hero-metrics-ring svg { width: 96px; height: 96px; }
+    .hero-metric-row { padding: 5px 0; }
+    .hero-metric-label { font-size: 11px; }
+    .hero-metric-value { font-size: 14px; }
+  }
+
   /* ── THEME TOGGLE ── */
   .theme-toggle {
     display: flex;
@@ -1446,26 +1548,26 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
 
     <div class="nav-section-label">Navigate</div>
     <div class="nav-item active" onclick="showPage('dashboard')" data-page="dashboard">
-      <span class="nav-icon">◈</span> Dashboard
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span> Dashboard
     </div>
     <div class="nav-item" onclick="showPage('monthly')" data-page="monthly">
-      <span class="nav-icon">◇</span> Monthly Goals
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg></span> Monthly Goals
     </div>
     <div class="nav-item" onclick="showPage('todo')" data-page="todo">
-      <span class="nav-icon">✓</span> To Do
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="16" height="16" rx="2"/><path d="M7 13l3 3 7-7"/></svg></span> To Do
     </div>
     <div class="nav-item" onclick="showPage('weekly')" data-page="weekly">
-      <span class="nav-icon">◈</span> Weekly Review
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span> Weekly Review
     </div>
     <div class="nav-item" onclick="showPage('year')" data-page="year">
-      <span class="nav-icon">◎</span> Year Overview
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Year Overview
     </div>
     <div class="nav-section-label">More</div>
     <div class="nav-item" onclick="showPage('history')" data-page="history">
-      <span class="nav-icon">◁</span> History
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 109-9H3"/><path d="M3 7v5h5"/><path d="M12 7v5l3 2"/></svg></span> History
     </div>
     <div class="nav-item" onclick="showPage('export')" data-page="export">
-      <span class="nav-icon">↗</span> Export PPTX
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M4 20h16"/></svg></span> Export PPTX
     </div>
 
     <div class="theme-toggle" onclick="toggleTheme()" title="Switch light/dark theme">
@@ -1489,46 +1591,42 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
 
       <span class="page-subtitle" style="display:none;">Here's how you're tracking this month</span>
 
-      <!-- Hero Card -->
-      <div class="dash-hero">
-        <div class="dash-hero-left">
-          <div class="dash-hero-greeting" id="dash-greeting">Good morning</div>
-          <div class="dash-hero-month" id="dash-title">March 2026</div>
-          <div class="dash-hero-msg" id="dash-hero-msg">Time to get started</div>
-        </div>
-        <div class="dash-hero-ring">
+      <!-- Hero Card — greeting + title -->
+      <div class="dash-greeting-block">
+        <div class="dash-hero-greeting" id="dash-greeting">Good morning</div>
+        <div class="dash-hero-month" id="dash-title">March 2026</div>
+        <div class="dash-hero-msg" id="dash-hero-msg">Time to get started</div>
+      </div>
+
+      <!-- Unified hero metrics card -->
+      <div class="hero-metrics-card">
+        <div class="hero-metrics-ring">
           <svg viewBox="0 0 120 120" id="hero-ring-svg">
-            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--light)" stroke-width="8"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border-mid)" stroke-width="8"/>
             <circle cx="60" cy="60" r="52" fill="none" stroke="var(--gold)" stroke-width="8"
               stroke-dasharray="0 327" stroke-linecap="round" transform="rotate(-90 60 60)"
-              id="hero-ring-fill" style="transition: stroke-dasharray 0.8s ease;"/>
+              id="hero-ring-fill" style="transition: stroke-dasharray 0.8s ease; filter: drop-shadow(0 0 6px var(--glow));"/>
           </svg>
           <div class="dash-hero-pct" id="dash-hero-pct">0%</div>
         </div>
-      </div>
-
-      <!-- Stats Row (4 cards) -->
-      <div class="stats-row">
-        <div class="stat-card accent">
-          <div class="stat-label">Tasks Done</div>
-          <div class="stat-value" id="stat-habit">—</div>
-          <div class="stat-sub">today</div>
-        </div>
-        <div class="stat-card stat-card-weeks">
-          <div class="stat-label">Weeks Logged</div>
-          <div class="stat-value" id="stat-weeks">0</div>
-          <div class="stat-sub">of 4 weeks</div>
-        </div>
-        <div class="stat-card stat-card-goals">
-          <div class="stat-label">Goals Done</div>
-          <div class="stat-value" id="stat-goals-done">—</div>
-          <div class="stat-sub" id="stat-goals-done-sub">this month</div>
+        <div class="hero-metrics-list">
+          <div class="hero-metric-row">
+            <span class="hero-metric-label">Tasks today</span>
+            <span class="hero-metric-value" id="stat-habit">—</span>
+          </div>
+          <div class="hero-metric-row">
+            <span class="hero-metric-label">Day streak</span>
+            <span class="hero-metric-value"><span class="hero-flame">🔥</span><span id="stat-streak">0</span></span>
+          </div>
+          <div class="hero-metric-row">
+            <span class="hero-metric-label">Goals done</span>
+            <span class="hero-metric-value" id="stat-goals-done">—</span>
+          </div>
+          <div class="hero-metric-row hero-metric-row--last">
+            <span class="hero-metric-label" id="stat-goals-done-sub">this month</span>
+            <span class="hero-metric-value-sub"><span id="stat-weeks">0</span><span class="hero-metric-sub-suffix"> / 4 wks</span></span>
+          </div>
           <div class="stat-goals-bar"><div class="stat-goals-bar-fill" id="stat-goals-bar-fill" style="width:0%"></div></div>
-        </div>
-        <div class="stat-card stat-card-streak">
-          <div class="stat-label">Day Streak</div>
-          <div class="stat-value" id="stat-streak">0</div>
-          <div class="stat-sub">consecutive days</div>
         </div>
       </div>
 
@@ -1555,7 +1653,7 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
       <!-- Day Counters -->
       <div class="card dash-full" id="day-counters-card" style="display:none;">
         <div class="card-title">Day Counters</div>
-        <div id="day-counters" style="display:flex;gap:10px;flex-wrap:wrap;"></div>
+        <div id="day-counters"></div>
       </div>
 
       <!-- Goals Quick View -->
@@ -1782,47 +1880,69 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
           </div>
         </div>
 
-        <hr class="section-divider">
-
-        <div style="margin-bottom:20px;">
-          <div class="card-title">What I Did Well</div>
-          <div class="review-grid">
-            <div class="review-section">
-              <div class="review-section-head"><span class="cat-tag cat-health">Health</span></div>
-              <textarea id="wr-well-health" placeholder="What health wins this week?"></textarea>
-            </div>
-            <div class="review-section">
-              <div class="review-section-head"><span class="cat-tag cat-personal">Personal Dev</span></div>
-              <textarea id="wr-well-personal" placeholder="Learning, books, trading insights..."></textarea>
-            </div>
-            <div class="review-section">
-              <div class="review-section-head"><span class="cat-tag cat-relationships">Relationships</span></div>
-              <textarea id="wr-well-relationships" placeholder="Connections, quality time..."></textarea>
-            </div>
-            <div class="review-section">
-              <div class="review-section-head"><span class="cat-tag cat-finance">Finance / Career</span></div>
-              <textarea id="wr-well-finance" placeholder="Financial wins, career progress..."></textarea>
+        <!-- Did Well accordion -->
+        <button class="wg-form-toggle review-accordion" onclick="toggleReviewAccordion('rev-well')" id="rev-well-btn">
+          <span style="font-size:14px;">★</span>
+          <span class="wg-form-toggle-label">What I Did Well</span>
+          <span class="wg-form-toggle-arrow">▼</span>
+        </button>
+        <div class="wg-form-collapsible" id="rev-well-collapsible">
+          <div style="padding:12px 2px 16px;">
+            <div class="review-grid">
+              <div class="review-section">
+                <div class="review-section-head"><span class="cat-tag cat-health">Health</span></div>
+                <textarea id="wr-well-health" placeholder="What health wins this week?"></textarea>
+              </div>
+              <div class="review-section">
+                <div class="review-section-head"><span class="cat-tag cat-personal">Personal Dev</span></div>
+                <textarea id="wr-well-personal" placeholder="Learning, books, trading insights..."></textarea>
+              </div>
+              <div class="review-section">
+                <div class="review-section-head"><span class="cat-tag cat-relationships">Relationships</span></div>
+                <textarea id="wr-well-relationships" placeholder="Connections, quality time..."></textarea>
+              </div>
+              <div class="review-section">
+                <div class="review-section-head"><span class="cat-tag cat-finance">Finance / Career</span></div>
+                <textarea id="wr-well-finance" placeholder="Financial wins, career progress..."></textarea>
+              </div>
             </div>
           </div>
         </div>
 
-        <hr class="section-divider">
-
-        <div style="margin-bottom:20px;">
-          <div class="card-title">Challenges & Opportunities</div>
-          <textarea id="wr-challenges" class="thoughts-box" placeholder="What didn't go well this week? What can improve?"></textarea>
+        <!-- Challenges accordion -->
+        <button class="wg-form-toggle review-accordion" onclick="toggleReviewAccordion('rev-challenges')" id="rev-challenges-btn">
+          <span style="font-size:14px;">△</span>
+          <span class="wg-form-toggle-label">Challenges &amp; Opportunities</span>
+          <span class="wg-form-toggle-arrow">▼</span>
+        </button>
+        <div class="wg-form-collapsible" id="rev-challenges-collapsible">
+          <div style="padding:12px 2px 16px;">
+            <textarea id="wr-challenges" class="thoughts-box" placeholder="What didn't go well this week? What can improve?"></textarea>
+          </div>
         </div>
 
-        <hr class="section-divider">
-
-        <div style="margin-bottom:20px;">
-          <div class="card-title">Thoughts</div>
-          <textarea id="wr-thoughts" class="thoughts-box" placeholder="Reflect on the week. How did it feel overall? What's on your mind?"></textarea>
+        <!-- Thoughts accordion -->
+        <button class="wg-form-toggle review-accordion" onclick="toggleReviewAccordion('rev-thoughts')" id="rev-thoughts-btn">
+          <span style="font-size:14px;">◇</span>
+          <span class="wg-form-toggle-label">Thoughts</span>
+          <span class="wg-form-toggle-arrow">▼</span>
+        </button>
+        <div class="wg-form-collapsible" id="rev-thoughts-collapsible">
+          <div style="padding:12px 2px 16px;">
+            <textarea id="wr-thoughts" class="thoughts-box" placeholder="Reflect on the week. How did it feel overall? What's on your mind?"></textarea>
+          </div>
         </div>
 
-        <div style="margin-bottom:4px;">
-          <div class="card-title">Action Plan for Next Week</div>
-          <textarea id="wr-actions" class="thoughts-box" placeholder="List your top actions (one per line)..."></textarea>
+        <!-- Action plan accordion -->
+        <button class="wg-form-toggle review-accordion" onclick="toggleReviewAccordion('rev-actions')" id="rev-actions-btn">
+          <span style="font-size:14px;">→</span>
+          <span class="wg-form-toggle-label">Action Plan for Next Week</span>
+          <span class="wg-form-toggle-arrow">▼</span>
+        </button>
+        <div class="wg-form-collapsible" id="rev-actions-collapsible">
+          <div style="padding:12px 2px 16px;">
+            <textarea id="wr-actions" class="thoughts-box" placeholder="List your top actions (one per line)..."></textarea>
+          </div>
         </div>
 
         <div class="btn-row" style="flex-wrap:wrap;gap:10px;align-items:center;">
@@ -2052,19 +2172,19 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
 <!-- MOBILE BOTTOM NAV -->
 <nav class="bottom-nav" id="bottom-nav">
   <button class="bottom-nav-item active" onclick="showPage('dashboard')" data-bnav="dashboard">
-    <span class="bottom-nav-icon">◈</span>Home
+    <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span>Home
   </button>
   <button class="bottom-nav-item" onclick="showPage('monthly')" data-bnav="monthly">
-    <span class="bottom-nav-icon">◇</span>Goals
+    <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg></span>Goals
   </button>
   <button class="bottom-nav-item" onclick="showPage('todo')" data-bnav="todo">
-    <span class="bottom-nav-icon">✓</span>To Do
+    <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="16" height="16" rx="2"/><path d="M7 13l3 3 7-7"/></svg></span>To Do
   </button>
   <button class="bottom-nav-item" onclick="showPage('weekly')" data-bnav="weekly">
-    <span class="bottom-nav-icon">◈</span>Review
+    <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Review
   </button>
   <button class="bottom-nav-item" onclick="toggleMoreDrawer()" id="more-btn">
-    <span class="bottom-nav-icon">···</span>More
+    <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></svg></span>More
   </button>
 </nav>
 
@@ -2078,15 +2198,15 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:0 8px;">
     <button class="bottom-nav-item" onclick="showPage('year');toggleMoreDrawer()" data-bnav="year"
       style="border-radius:10px;padding:14px 8px;">
-      <span class="bottom-nav-icon">◎</span>Year
+      <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span>Year
     </button>
     <button class="bottom-nav-item" onclick="showPage('history');toggleMoreDrawer()" data-bnav="history"
       style="border-radius:10px;padding:14px 8px;">
-      <span class="bottom-nav-icon">◁</span>History
+      <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 109-9H3"/><path d="M3 7v5h5"/><path d="M12 7v5l3 2"/></svg></span>History
     </button>
     <button class="bottom-nav-item" onclick="showPage('export');toggleMoreDrawer()" data-bnav="export"
       style="border-radius:10px;padding:14px 8px;">
-      <span class="bottom-nav-icon">↗</span>Export
+      <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M4 20h16"/></svg></span>Export
     </button>
   </div>
   <div style="display:flex;justify-content:center;padding:6px 0 2px;border-top:1px solid var(--border);margin-top:4px;">
@@ -2614,21 +2734,31 @@ function renderDashboard() {
         }
       });
     });
-    const counters = [
-      { label: 'Green', value: greenDays, color: '#34D399', bg: 'rgba(52,211,153,0.12)' },
-      { label: 'Yellow', value: yellowDays, color: '#22D3EE', bg: 'rgba(34,211,238,0.12)' },
-      { label: 'Red', value: redDays, color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
-      { label: 'No Tasks', value: noTaskDays, color: 'var(--muted)', bg: 'var(--light)' },
-      { label: 'Sick', value: sickDays, color: '#EF4444', bg: 'rgba(239,68,68,0.08)', icon: '🤒' },
-      { label: 'Vacation', value: vacDays, color: '#22D3EE', bg: 'rgba(34,211,238,0.08)', icon: '🏖️' },
-      { label: 'Special', value: specialDays, color: '#e05c7a', bg: 'rgba(224,92,122,0.08)', icon: '♥' },
+    const completion = [
+      { label: 'Green', value: greenDays, dot: 'var(--green)' },
+      { label: 'Yellow', value: yellowDays, dot: 'var(--gold)' },
+      { label: 'Red', value: redDays, dot: 'var(--red)' },
+      { label: 'No Tasks', value: noTaskDays, dot: 'var(--border-mid)' },
     ];
-    dcEl.innerHTML = counters.map(c =>
-      `<div style="flex:1;min-width:80px;background:${c.bg};border-radius:10px;padding:10px 12px;text-align:center;">
-        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${c.color};margin-bottom:4px;font-weight:600;">${c.icon ? c.icon + ' ' : ''}${c.label}</div>
-        <div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:${c.color};">${c.value}</div>
-      </div>`
-    ).join('');
+    const statuses = [
+      { label: 'Sick', value: sickDays, icon: '🤒' },
+      { label: 'Vacation', value: vacDays, icon: '🏖️' },
+      { label: 'Special', value: specialDays, icon: '♥' },
+    ];
+    const tile = (c, hasIcon) => `<div class="day-counter-tile">
+      <div class="day-counter-tile-label">${hasIcon ? `<span class="day-counter-icon">${c.icon}</span>` : `<span class="day-counter-dot" style="background:${c.dot};"></span>`}${c.label}</div>
+      <div class="day-counter-tile-value">${c.value}</div>
+    </div>`;
+    dcEl.innerHTML = `
+      <div class="day-counters-group">
+        <div class="day-counters-group-label">Completion</div>
+        <div class="day-counters-grid">${completion.map(c => tile(c, false)).join('')}</div>
+      </div>
+      <div class="day-counters-group">
+        <div class="day-counters-group-label">Status</div>
+        <div class="day-counters-grid day-counters-grid-3">${statuses.map(c => tile(c, true)).join('')}</div>
+      </div>
+    `;
     dcCard.style.display = 'block';
   }
 
@@ -3787,6 +3917,24 @@ function toggleWgForm() {
   const btn = document.getElementById('wg-form-toggle-btn');
   const panel = document.getElementById('wg-form-collapsible');
   const isOpen = panel.classList.contains('open');
+  panel.classList.toggle('open', !isOpen);
+  btn.classList.toggle('open', !isOpen);
+}
+
+function toggleReviewAccordion(id) {
+  // Save journal before re-rendering
+  if (typeof autoSaveWeekReview === 'function') autoSaveWeekReview();
+  const btn = document.getElementById(id + '-btn');
+  const panel = document.getElementById(id + '-collapsible');
+  if (!btn || !panel) return;
+  const isOpen = panel.classList.contains('open');
+  // Close all other review accordions
+  ['rev-well','rev-challenges','rev-thoughts','rev-actions'].forEach(other => {
+    if (other !== id) {
+      document.getElementById(other + '-btn')?.classList.remove('open');
+      document.getElementById(other + '-collapsible')?.classList.remove('open');
+    }
+  });
   panel.classList.toggle('open', !isOpen);
   btn.classList.toggle('open', !isOpen);
 }
