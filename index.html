@@ -328,6 +328,46 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
     min-width: 0;
   }
   .todo-item:hover { border-color: var(--accent-mid); }
+
+  /* ── SWIPE-TO-DELETE ── */
+  .todo-swipe-wrap {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .todo-swipe-wrap .todo-item {
+    margin-bottom: 0;
+    position: relative;
+    z-index: 1;
+    touch-action: pan-y;
+    transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+    background: var(--surface);
+  }
+  .todo-swipe-wrap.swiping .todo-item { transition: none; }
+  .todo-swipe-delete-bg {
+    position: absolute; inset: 0;
+    background: var(--red);
+    display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 22px;
+    border-radius: 8px;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .todo-swipe-delete-bg svg { width: 18px; height: 18px; color: #fff; }
+  .todo-swipe-wrap.revealed .todo-swipe-delete-bg { opacity: 1; }
+  .todo-swipe-wrap.removing {
+    max-height: 0; margin-bottom: 0; opacity: 0;
+    transition: max-height 0.22s ease, margin-bottom 0.22s ease, opacity 0.18s ease;
+  }
+  .todo-swipe-hint {
+    font-size: 10px; color: var(--muted); margin: -4px 0 8px;
+    text-align: center; letter-spacing: 0.04em;
+  }
   .todo-item.done { opacity: 0.5; }
   .todo-check {
     width: 20px; height: 20px; border-radius: 5px;
@@ -3092,11 +3132,14 @@ function renderTodoDay() {
       const hiddenKey = goal.key + '_hidden_d' + currentTodoDay;
       const isHidden = m.todo[currentTodoWeek]?.[currentTodoDay]?.linkedHidden?.[hiddenKey] || false;
       if (isHidden) return;
-      linkedHtml += `<div class="todo-item ${checked ? 'done' : ''}">
-        <div class="todo-check ${checked ? 'checked' : ''}" onclick="toggleLinkedTodo('${cat.key}', ${goal.wi}, ${goal.idx})">${checked ? '✓' : ''}</div>
-        <span class="todo-text" style="text-decoration:${checked?'line-through':'none'};color:${checked?'var(--muted)':'var(--dark)'};">${escHtml(goal.text)}</span>
-        <button class="todo-did-well-btn" data-cat="${cat.key}" data-text="${escHtml(goal.text)}" data-wi="${goal.wi}" onclick="addToDidWellFromBtn(this)" title="Add to Did Well">👍</button>
-        <button class="todo-del" onclick="hideLinkedTodo('${hiddenKey}')" title="Hide for today">×</button>
+      linkedHtml += `<div class="todo-swipe-wrap" data-swipe-action="hideLinkedTodo('${hiddenKey}')">
+        <div class="todo-swipe-delete-bg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></div>
+        <div class="todo-item ${checked ? 'done' : ''}">
+          <div class="todo-check ${checked ? 'checked' : ''}" onclick="toggleLinkedTodo('${cat.key}', ${goal.wi}, ${goal.idx})">${checked ? '✓' : ''}</div>
+          <span class="todo-text" style="text-decoration:${checked?'line-through':'none'};color:${checked?'var(--muted)':'var(--dark)'};">${escHtml(goal.text)}</span>
+          <button class="todo-did-well-btn" data-cat="${cat.key}" data-text="${escHtml(goal.text)}" data-wi="${goal.wi}" onclick="addToDidWellFromBtn(this)" title="Add to Did Well">👍</button>
+          <button class="todo-del" onclick="hideLinkedTodo('${hiddenKey}')" title="Hide for today">×</button>
+        </div>
       </div>`;
     });
 
@@ -3168,24 +3211,109 @@ function renderTodoDay() {
     }
     extraEl.innerHTML = extraHtml;
   }
+
+  // Wire up swipe-to-delete on all .todo-swipe-wrap elements
+  attachTodoSwipe();
+}
+
+function attachTodoSwipe() {
+  const wraps = document.querySelectorAll('#todo-extra-list .todo-swipe-wrap, #todo-linked-list .todo-swipe-wrap');
+  wraps.forEach(wrap => {
+    if (wrap.dataset.swipeBound === '1') return;
+    wrap.dataset.swipeBound = '1';
+    const item = wrap.querySelector('.todo-item');
+    if (!item) return;
+
+    let startX = null, startY = null, dx = 0, dy = 0, dragging = false, axisLocked = null;
+
+    const skipTargets = 'input, textarea, select, button, .todo-check, .todo-did-well-btn, .todo-del, .todo-cat-select';
+
+    const reset = () => {
+      wrap.classList.remove('swiping', 'revealed');
+      item.style.transform = '';
+      startX = startY = null; dx = dy = 0; dragging = false; axisLocked = null;
+    };
+
+    const onDown = (e) => {
+      if (e.target.closest(skipTargets)) return;
+      startX = e.clientX;
+      startY = e.clientY;
+      dx = 0; dy = 0; dragging = false; axisLocked = null;
+      wrap.classList.add('swiping');
+      try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
+    };
+
+    const onMove = (e) => {
+      if (startX === null) return;
+      dx = e.clientX - startX;
+      dy = e.clientY - startY;
+      if (!axisLocked) {
+        if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) axisLocked = 'x';
+        else if (Math.abs(dy) > 8) axisLocked = 'y';
+      }
+      if (axisLocked === 'x') {
+        e.preventDefault();
+        dragging = true;
+        const sx = Math.min(0, Math.max(-110, dx));
+        item.style.transform = `translateX(${sx}px)`;
+        wrap.classList.toggle('revealed', sx < -10);
+      } else if (axisLocked === 'y') {
+        // Allow vertical scroll; cancel swipe
+        wrap.classList.remove('swiping', 'revealed');
+        item.style.transform = '';
+      }
+    };
+
+    const onUp = (e) => {
+      if (startX === null) return;
+      const dragged = dragging;
+      const swipedFar = dragged && dx < -52;
+      wrap.classList.remove('swiping');
+      if (swipedFar) {
+        // Animate out, then fire delete
+        item.style.transform = 'translateX(-110%)';
+        wrap.classList.add('removing');
+        setTimeout(() => {
+          const action = wrap.dataset.swipeAction;
+          if (action) {
+            try { (new Function(action))(); }
+            catch (err) { console.warn('swipe action failed', err); }
+          }
+        }, 200);
+      } else {
+        item.style.transform = '';
+        wrap.classList.remove('revealed');
+      }
+      startX = startY = null; dx = dy = 0; dragging = false; axisLocked = null;
+      try { wrap.releasePointerCapture(e.pointerId); } catch (_) {}
+    };
+
+    wrap.addEventListener('pointerdown', onDown);
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerup', onUp);
+    wrap.addEventListener('pointercancel', reset);
+  });
 }
 
 function renderExtraItem(task, i) {
   const catOpts = `<option value="none" ${!task.cat||task.cat==='none'?'selected':''}>— No category</option>` +
     TODO_CATS.map(c => `<option value="${c.key}" ${task.cat===c.key?'selected':''}>${c.label}</option>`).join('');
   const catForWell = task.cat && task.cat !== 'none' ? task.cat : 'health';
-  return `<div class="todo-item ${task.done ? 'done' : ''}" style="flex-wrap:wrap;">
-    <div class="todo-check ${task.done ? 'checked' : ''}" onclick="toggleExtraTodo(${i})">${task.done ? '✓' : ''}</div>
-    <input class="todo-text" value="${escHtml(task.text)}" placeholder="Task..."
-      onchange="updateExtraTodo(${i}, this.value)"
-      style="text-decoration:${task.done?'line-through':'none'};color:${task.done?'var(--muted)':'var(--dark)'};">
-    <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
-      <select class="todo-cat-select" onchange="updateExtraTodoCat(${i}, this.value)"
-        style="font-size:11px;border:1px solid var(--border);border-radius:4px;padding:3px 5px;background:var(--surface);color:var(--muted);font-family:var(--font-body);cursor:pointer;max-width:110px;">
-        ${catOpts}
-      </select>
-      <button class="todo-did-well-btn" data-cat="${catForWell}" data-wi="${currentTodoWeek}" onclick="addToDidWellFromBtn(this)" title="Add to Did Well">👍</button>
-      <button class="todo-del" onclick="deleteExtraTodo(${i})">×</button>
+  return `<div class="todo-swipe-wrap" data-swipe-action="deleteExtraTodo(${i})">
+    <div class="todo-swipe-delete-bg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></div>
+    <div class="todo-item ${task.done ? 'done' : ''}" style="flex-wrap:wrap;">
+      <div class="todo-check ${task.done ? 'checked' : ''}" onclick="toggleExtraTodo(${i})">${task.done ? '✓' : ''}</div>
+      <input class="todo-text" value="${escHtml(task.text)}" placeholder="Task..."
+        onchange="updateExtraTodo(${i}, this.value)"
+        style="text-decoration:${task.done?'line-through':'none'};color:${task.done?'var(--muted)':'var(--dark)'};">
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+        <select class="todo-cat-select" onchange="updateExtraTodoCat(${i}, this.value)"
+          style="font-size:11px;border:1px solid var(--border);border-radius:4px;padding:3px 5px;background:var(--surface);color:var(--muted);font-family:var(--font-body);cursor:pointer;max-width:110px;">
+          ${catOpts}
+        </select>
+        <button class="todo-did-well-btn" data-cat="${catForWell}" data-wi="${currentTodoWeek}" onclick="addToDidWellFromBtn(this)" title="Add to Did Well">👍</button>
+        <button class="todo-del" onclick="deleteExtraTodo(${i})">×</button>
+      </div>
     </div>
   </div>`;
 }
