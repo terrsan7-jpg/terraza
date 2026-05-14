@@ -3141,7 +3141,6 @@ function renderTodoDay() {
         <div class="todo-item ${checked ? 'done' : ''}">
           <div class="todo-check ${checked ? 'checked' : ''}" onclick="toggleLinkedTodo('${cat.key}', ${goal.wi}, ${goal.idx})">${checked ? '✓' : ''}</div>
           <span class="todo-text" style="text-decoration:${checked?'line-through':'none'};color:${checked?'var(--muted)':'var(--dark)'};">${escHtml(goal.text)}</span>
-          <button class="todo-did-well-btn" data-cat="${cat.key}" data-text="${escHtml(goal.text)}" data-wi="${goal.wi}" onclick="addToDidWellFromBtn(this)" title="Add to Did Well">👍</button>
           <button class="todo-carry-btn" data-carry-type="linked" data-carry-arg="${hiddenKey}" data-carry-cat="${cat.key}" onclick="carryTaskFromBtn(this)" title="Move to next day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           <button class="todo-del" onclick="hideLinkedTodo('${hiddenKey}')" title="Hide for today">×</button>
         </div>
@@ -3316,7 +3315,6 @@ function renderExtraItem(task, i) {
           style="font-size:11px;border:1px solid var(--border);border-radius:4px;padding:3px 5px;background:var(--surface);color:var(--muted);font-family:var(--font-body);cursor:pointer;max-width:110px;">
           ${catOpts}
         </select>
-        <button class="todo-did-well-btn" data-cat="${catForWell}" data-wi="${currentTodoWeek}" onclick="addToDidWellFromBtn(this)" title="Add to Did Well">👍</button>
         <button class="todo-carry-btn" data-carry-type="extra" data-carry-arg="${i}" data-carry-cat="${task.cat || 'none'}" onclick="carryTaskFromBtn(this)" title="Move to next day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         <button class="todo-del" onclick="deleteExtraTodo(${i})">×</button>
       </div>
