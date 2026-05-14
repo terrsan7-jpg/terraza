@@ -1673,8 +1673,8 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
             <span class="hero-metric-value" id="stat-goals-done">—</span>
           </div>
           <div class="hero-metric-row hero-metric-row--last">
-            <span class="hero-metric-label" id="stat-goals-done-sub">this month</span>
-            <span class="hero-metric-value-sub"><span id="stat-weeks">0</span><span class="hero-metric-sub-suffix"> / 4 wks</span></span>
+            <span class="hero-metric-label">Weeks logged</span>
+            <span class="hero-metric-value-sub"><span id="stat-weeks">0</span><span class="hero-metric-sub-suffix"> / 4</span></span>
           </div>
           <div class="stat-goals-bar"><div class="stat-goals-bar-fill" id="stat-goals-bar-fill" style="width:0%"></div></div>
         </div>
@@ -2673,8 +2673,6 @@ function renderDashboard() {
       const el = document.getElementById(id);
       if (el) el.textContent = '—';
     });
-    const _gdsub = document.getElementById('stat-goals-done-sub');
-    if (_gdsub) _gdsub.textContent = 'this month';
     const _gdbar = document.getElementById('stat-goals-bar-fill');
     if (_gdbar) _gdbar.style.width = '0%';
     const wbEl = document.getElementById('week-bars');
@@ -2733,8 +2731,6 @@ function renderDashboard() {
   const doneGoalsCount = doneGoals;
   const _gdEl = document.getElementById('stat-goals-done');
   if (_gdEl) _gdEl.textContent = doneGoalsCount + '/' + totalGoals;
-  const _gdSub = document.getElementById('stat-goals-done-sub');
-  if (_gdSub) _gdSub.textContent = totalGoals !== 1 ? 'goals' : 'goal';
   const _gdBar = document.getElementById('stat-goals-bar-fill');
   if (_gdBar) _gdBar.style.width = totalGoals > 0 ? pct + '%' : '0%';
 
