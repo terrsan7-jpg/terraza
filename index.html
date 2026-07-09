@@ -2114,7 +2114,7 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
         <div class="card" style="margin-top:24px;">
           <div class="card-title">🔔 Daily Reminders</div>
           <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;">
-            Get a push notification to check your to-do list. Works when Terraza is installed as a PWA or open in your browser.
+            Get a reminder to check your to-do list. Pick any time. Fires while the app is open, and catches up when you re-open it after the scheduled time.
           </p>
           <div id="notif-permission-banner" style="display:none;background:rgba(34,211,238,0.12);border:1px solid var(--gold);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--dark);">
             ⚠ Notifications are blocked. Please allow them in your browser/phone settings, then reload.
@@ -2127,6 +2127,7 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
               </div>
               <div style="display:flex;align-items:center;gap:8px;">
                 <input type="time" id="notif-morning-time" value="08:00"
+                  onchange="saveNotifSettings()"
                   style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-family:var(--font-body);font-size:13px;background:var(--surface);color:var(--dark);">
                 <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
                   <input type="checkbox" id="notif-morning-on" onchange="saveNotifSettings()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--brown);">
@@ -2141,6 +2142,7 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
               </div>
               <div style="display:flex;align-items:center;gap:8px;">
                 <input type="time" id="notif-evening-time" value="20:00"
+                  onchange="saveNotifSettings()"
                   style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-family:var(--font-body);font-size:13px;background:var(--surface);color:var(--dark);">
                 <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
                   <input type="checkbox" id="notif-evening-on" onchange="saveNotifSettings()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--brown);">
@@ -5628,42 +5630,73 @@ function getPendingTaskCount(m, wi, di) {
   return linkedPending + extraPending;
 }
 
+function _todayKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+}
+
 function fireReminderIfDue(label, timeStr) {
   if (Notification.permission !== 'granted') return;
   const [h, min] = timeStr.split(':').map(Number);
+  if (isNaN(h) || isNaN(min)) return;
+
   const now = new Date();
-  if (now.getHours() === h && now.getMinutes() === min) {
-    const m = getActiveMonth();
-    const todayIdx = getTodayIndex();
-    const wi = getCurrentWeekIndex();
-    const pending = getPendingTaskCount(m, wi, todayIdx);
-    const isEvening = label === 'evening';
-    const body = isEvening
-      ? (pending > 0
-          ? `${pending} task${pending > 1 ? 's' : ''} still pending — don't forget to journal too 📓`
-          : 'All done! Take a moment to journal your day 📓')
-      : (pending > 0
-          ? `${pending} task${pending > 1 ? 's' : ''} on your list today — let's crush it 💪`
-          : 'Your day is clear — add tasks or check your weekly goals 🌿');
-    new Notification(`Terraza — ${label === 'morning' ? 'Good morning ☀' : 'End of day 🌙'}`, {
-      body,
-      icon: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%232E2E2E'/%3E%3Crect x='32' y='32' width='200' height='448' rx='12' fill='%238B5E3C'/%3E%3C/svg%3E`,
-    });
-  }
+  const scheduled = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, min);
+
+  // Only fire if we're at or past the scheduled time today
+  if (now < scheduled) return;
+
+  // Track last-fired date per reminder so we fire at most once per day
+  const firedKey = 'terraza_notif_fired_' + label;
+  const lastFired = localStorage.getItem(firedKey);
+  const today = _todayKey();
+  if (lastFired === today) return;
+
+  const m = getActiveMonth();
+  const todayIdx = getTodayIndex();
+  const wi = getCurrentWeekIndex();
+  const pending = getPendingTaskCount(m, wi, todayIdx);
+  const isEvening = label === 'evening';
+  const body = isEvening
+    ? (pending > 0
+        ? `${pending} task${pending > 1 ? 's' : ''} still pending — don't forget to journal too 📓`
+        : 'All done! Take a moment to journal your day 📓')
+    : (pending > 0
+        ? `${pending} task${pending > 1 ? 's' : ''} on your list today — let's crush it 💪`
+        : 'Your day is clear — add tasks or check your weekly goals 🌿');
+  new Notification(`Terraza — ${label === 'morning' ? 'Good morning ☀' : 'End of day 🌙'}`, {
+    body,
+    icon: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%232E2E2E'/%3E%3Crect x='32' y='32' width='200' height='448' rx='12' fill='%238B5E3C'/%3E%3C/svg%3E`,
+    tag: 'terraza-' + label,
+  });
+  localStorage.setItem(firedKey, today);
+}
+
+function checkAllReminders() {
+  const s = JSON.parse(localStorage.getItem('terraza_notif') || '{}');
+  if (s.morningOn) fireReminderIfDue('morning', s.morningTime || '08:00');
+  if (s.eveningOn) fireReminderIfDue('evening', s.eveningTime || '20:00');
 }
 
 let notifInterval = null;
 function scheduleNotifications() {
   if (notifInterval) clearInterval(notifInterval);
   const s = JSON.parse(localStorage.getItem('terraza_notif') || '{}');
-
   if (!s.morningOn && !s.eveningOn) return;
-  // Also check every minute while app is open (fallback)
-  notifInterval = setInterval(() => {
-    if (s.morningOn) fireReminderIfDue('morning', s.morningTime || '08:00');
-    if (s.eveningOn) fireReminderIfDue('evening', s.eveningTime || '20:00');
-  }, 60000);
+
+  // Catch up immediately: if we passed the time today and haven't fired yet,
+  // fire now. This handles cases where the browser was closed at HH:MM.
+  checkAllReminders();
+
+  // Poll every 30s while the app is open
+  notifInterval = setInterval(checkAllReminders, 30000);
 }
+
+// Re-check when the tab regains focus or becomes visible again
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) checkAllReminders();
+});
+window.addEventListener('focus', checkAllReminders);
 
 // Init on load
 scheduleNotifications();
