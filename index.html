@@ -2163,6 +2163,7 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
           <div id="notif-permission-banner" style="display:none;background:rgba(34,211,238,0.12);border:1px solid var(--gold);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--dark);">
             ⚠ Notifications are blocked. Please allow them in your browser/phone settings, then reload.
           </div>
+          <div id="notif-diag" style="display:none;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--muted);line-height:1.5;"></div>
           <div style="display:flex;flex-direction:column;gap:12px;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
               <div>
@@ -5840,10 +5841,14 @@ initWeekTabs();
 // ── Start cloud sync (if Firebase is configured) ──
 initFirebase();
 
-// ── KILL ALL SERVICE WORKERS ──
+// ── REGISTER SERVICE WORKER (needed for notifications on iOS/Android) ──
+// The SW has no fetch handler, so it never caches — no stale-file risk.
+let _swRegistration = null;
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    regs.forEach(r => r.unregister());
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    _swRegistration = reg;
+  }).catch(err => {
+    console.warn('SW registration failed', err);
   });
 }
 
@@ -5876,21 +5881,58 @@ function saveNotifSettings() {
   showToast('Reminder settings saved ✓');
 }
 
+function _isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function _isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+}
+
 function updateNotifStatus() {
   const banner = document.getElementById('notif-permission-banner');
   const statusEl = document.getElementById('notif-status');
+  const diagEl = document.getElementById('notif-diag');
+
+  // Build a plain-language diagnostic so it's clear what's blocking notifications
+  if (diagEl) {
+    const supported = ('Notification' in window);
+    const perm = supported ? Notification.permission : 'unsupported';
+    const standalone = _isStandalone();
+    const ios = _isIOS();
+    let lines = [];
+
+    if (!supported) {
+      lines.push('❌ This browser can\'t show notifications.');
+      if (ios) lines.push('On iPhone: open Terraza from the Home Screen icon (not Safari).');
+    } else if (ios && !standalone) {
+      lines.push('⚠ On iPhone, notifications only work when you open Terraza from the Home Screen icon.');
+      lines.push('Add to Home Screen, then open it from there and tap "Enable Notifications".');
+    } else if (perm === 'default') {
+      lines.push('🔔 Tap "Enable Notifications" and allow it when your phone asks.');
+    } else if (perm === 'denied') {
+      lines.push('❌ Notifications are blocked. Enable them in your phone settings for Terraza, then reload.');
+    } else if (perm === 'granted') {
+      lines.push('✓ Notifications are enabled.');
+      lines.push('Reminders fire while the app is open, and catch up when you re-open it after the set time.');
+    }
+    diagEl.innerHTML = lines.map(l => `<div style="margin-bottom:3px;">${l}</div>`).join('');
+    diagEl.style.display = 'block';
+  }
+
   if (!('Notification' in window)) {
-    if (banner) { banner.style.display = 'block'; banner.textContent = '⚠ Your browser does not support notifications.'; }
+    if (banner) { banner.style.display = 'none'; }
     return;
   }
-  if (Notification.permission === 'denied') {
-    if (banner) banner.style.display = 'block';
-  } else {
-    if (banner) banner.style.display = 'none';
-  }
-  if (Notification.permission === 'granted' && statusEl) {
-    statusEl.style.display = 'block';
-    statusEl.textContent = '✓ Notifications are enabled';
+  if (banner) banner.style.display = (Notification.permission === 'denied') ? 'block' : 'none';
+  if (statusEl) {
+    if (Notification.permission === 'granted') {
+      statusEl.style.display = 'block';
+      statusEl.textContent = '✓ Notifications are enabled';
+    } else {
+      statusEl.style.display = 'none';
+    }
   }
 }
 
@@ -5910,21 +5952,52 @@ async function enableNotifications() {
   }
 }
 
+const NOTIF_ICON = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%232E2E2E'/%3E%3Crect x='32' y='32' width='200' height='448' rx='12' fill='%238B5E3C'/%3E%3C/svg%3E`;
+
+// Show a notification through the service worker (required on iOS PWAs),
+// falling back to the Notification constructor on desktop browsers.
+async function showAppNotification(title, options) {
+  options = options || {};
+  options.icon = options.icon || NOTIF_ICON;
+  // Prefer the service worker registration — the ONLY method that works
+  // in installed PWAs on iOS 16.4+.
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = _swRegistration || await navigator.serviceWorker.ready;
+      if (reg && reg.showNotification) {
+        await reg.showNotification(title, options);
+        return true;
+      }
+    }
+  } catch (e) { /* fall through to constructor */ }
+  // Desktop fallback
+  try {
+    new Notification(title, options);
+    return true;
+  } catch (e) {
+    console.warn('Notification failed', e);
+    return false;
+  }
+}
+
 function testNotification() {
+  if (!('Notification' in window)) {
+    showToast('This browser/device does not support notifications');
+    return;
+  }
   if (Notification.permission !== 'granted') {
-    showToast('Enable notifications first');
+    showToast('Tap "Enable Notifications" first');
     return;
   }
   const m = getActiveMonth();
   const todayIdx = getTodayIndex();
   const wi = getCurrentWeekIndex();
   const pending = getPendingTaskCount(m, wi, todayIdx);
-  new Notification('Terraza — Test Reminder 🌿', {
+  showAppNotification('Terraza — Test Reminder 🌿', {
     body: pending > 0
       ? `You have ${pending} task${pending > 1 ? 's' : ''} pending today. Let's get it done!`
       : 'No tasks pending today — great work! 🎉',
-    icon: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%232E2E2E'/%3E%3Crect x='32' y='32' width='200' height='448' rx='12' fill='%238B5E3C'/%3E%3C/svg%3E`,
-    badge: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%232E2E2E'/%3E%3C/svg%3E`,
+    tag: 'terraza-test',
   });
 }
 
@@ -5971,9 +6044,8 @@ function fireReminderIfDue(label, timeStr) {
     : (pending > 0
         ? `${pending} task${pending > 1 ? 's' : ''} on your list today — let's crush it 💪`
         : 'Your day is clear — add tasks or check your weekly goals 🌿');
-  new Notification(`Terraza — ${label === 'morning' ? 'Good morning ☀' : 'End of day 🌙'}`, {
+  showAppNotification(`Terraza — ${label === 'morning' ? 'Good morning ☀' : 'End of day 🌙'}`, {
     body,
-    icon: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%232E2E2E'/%3E%3Crect x='32' y='32' width='200' height='448' rx='12' fill='%238B5E3C'/%3E%3C/svg%3E`,
     tag: 'terraza-' + label,
   });
   localStorage.setItem(firedKey, today);
