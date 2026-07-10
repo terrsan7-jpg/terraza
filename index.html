@@ -400,6 +400,47 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   }
   .todo-carry-btn svg { width: 14px; height: 14px; }
   .todo-carry-btn:hover { opacity: 1; color: var(--gold); background: var(--accent-light); }
+
+  /* ── DAY RATING BAR ── */
+  .day-rating-bar {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 12px; padding: 8px 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; width: fit-content; max-width: 100%;
+  }
+  .day-rating-label { font-size: 11px; color: var(--muted); font-weight: 600; margin-right: 2px; }
+  .day-rating-dot {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid transparent; cursor: pointer;
+    padding: 0; transition: all 0.15s; position: relative;
+    flex-shrink: 0;
+  }
+  .day-rating-dot.rate-green { background: #34D399; }
+  .day-rating-dot.rate-yellow { background: #FBBF24; }
+  .day-rating-dot.rate-red { background: #EF4444; }
+  .day-rating-dot:hover { transform: scale(1.12); }
+  .day-rating-dot.selected {
+    border-color: var(--dark);
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px currentColor;
+  }
+  .day-rating-dot.rate-green.selected { color: #34D399; }
+  .day-rating-dot.rate-yellow.selected { color: #FBBF24; }
+  .day-rating-dot.rate-red.selected { color: #EF4444; }
+  .day-rating-dot.selected::after {
+    content: '✓'; position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 12px; font-weight: 800; line-height: 1;
+  }
+  .day-rating-clear {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--muted);
+    background: none; border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 8px; cursor: pointer;
+    font-family: var(--font-body); transition: all 0.15s;
+    margin-left: 2px;
+  }
+  .day-rating-clear:hover { border-color: var(--muted); color: var(--dark); }
+  .day-rating-clear.selected { border-color: var(--gold); color: var(--gold); }
   .todo-did-well-btn {
     font-size: 12px; flex-shrink: 0; cursor: pointer;
     background: none; border: 1px solid var(--border);
@@ -1758,6 +1799,15 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
             <button id="btn-special-day" onclick="toggleSpecialDay()" title="Mark as special day"
               style="font-size:22px;background:none;border:none;cursor:pointer;padding:4px 8px;transition:transform 0.2s;line-height:1;">♡</button>
           </div>
+        </div>
+
+        <!-- Manual day rating: how did today go? -->
+        <div class="day-rating-bar">
+          <span class="day-rating-label">Rate this day:</span>
+          <button class="day-rating-dot rate-green" id="rate-green" onclick="setDayRating('green')" title="Good day"></button>
+          <button class="day-rating-dot rate-yellow" id="rate-yellow" onclick="setDayRating('yellow')" title="OK day"></button>
+          <button class="day-rating-dot rate-red" id="rate-red" onclick="setDayRating('red')" title="Rough day"></button>
+          <button class="day-rating-clear" id="rate-clear" onclick="setDayRating(null)" title="Clear — use auto color">auto</button>
         </div>
       </div>
 
@@ -3308,6 +3358,7 @@ function ensureTodo(m) {
       if (d.reflection === undefined) d.reflection = '';
       if (d.gratitude === undefined) d.gratitude = '';
       if (d.special === undefined) d.special = false;
+      if (d.dayRating === undefined) d.dayRating = null; // null | 'green' | 'yellow' | 'red'
       if (!d.dayStatus || typeof d.dayStatus !== 'object') {
         // migrate old string value or null
         const old = d.dayStatus;
@@ -3467,6 +3518,8 @@ function renderTodoDay() {
   });
   // Update day status buttons
   updateDayStatusButtons(dayData.dayStatus || { sick: false, vacation: false });
+  // Update manual day rating buttons
+  updateDayRatingButtons(dayData.dayRating || null);
   // Update heart button
   const heartBtn = document.getElementById('btn-special-day');
   if (heartBtn) {
@@ -3708,6 +3761,30 @@ function updateDayStatusButtons(status) {
     vacBtn.style.background = status.vacation ? 'rgba(34,211,238,0.15)' : 'none';
     vacBtn.style.borderColor = status.vacation ? 'var(--gold)' : 'var(--border)';
   }
+}
+
+function setDayRating(color) {
+  const m = getActiveMonth();
+  if (!m) return;
+  ensureTodo(m);
+  if (!m.todo[currentTodoWeek] || !m.todo[currentTodoWeek][currentTodoDay]) return;
+  const d = m.todo[currentTodoWeek][currentTodoDay];
+  // Tapping the already-selected color clears it (back to auto)
+  d.dayRating = (d.dayRating === color) ? null : color;
+  saveData();
+  updateDayRatingButtons(d.dayRating);
+  const labels = { green: '🟢 Good day', yellow: '🟡 OK day', red: '🔴 Rough day' };
+  showToast(d.dayRating ? labels[d.dayRating] : 'Day color cleared — using auto');
+  if (currentPage === 'dashboard') renderTaskCalendar();
+}
+
+function updateDayRatingButtons(rating) {
+  ['green','yellow','red'].forEach(c => {
+    const btn = document.getElementById('rate-' + c);
+    if (btn) btn.classList.toggle('selected', rating === c);
+  });
+  const clearBtn = document.getElementById('rate-clear');
+  if (clearBtn) clearBtn.classList.toggle('selected', !rating);
 }
 
 function toggleSpecialDay() {
@@ -4246,20 +4323,29 @@ function renderTaskCalendar() {
 
       const { done, total } = getDayTaskCompletion(m, wi, di);
       const isFuture = date > today;
+      const manualRating = m.todo[wi]?.[di]?.dayRating || null;
 
       let fillColor = '', fillHeight = 0, numColor = 'var(--muted)';
-      if (total > 0 && !isFuture) {
+      let title = '';
+      if (manualRating) {
+        // Manual rating chosen by the user takes priority over auto
+        fillHeight = 100;
+        if (manualRating === 'green')       { fillColor = 'var(--cal-fill-green,rgba(52,211,153,0.4))'; numColor = 'var(--green)'; title = 'Good day'; }
+        else if (manualRating === 'yellow') { fillColor = 'rgba(251,191,36,0.4)';                        numColor = '#FBBF24';     title = 'OK day'; }
+        else                                { fillColor = 'var(--cal-fill-red,rgba(239,68,68,0.35))';   numColor = 'var(--red)';   title = 'Rough day'; }
+      } else if (total > 0 && !isFuture) {
+        // Auto color from task completion (fallback when not manually rated)
         const pct = Math.round(done / total * 100);
         fillHeight = pct;
         if (pct >= 70)      { fillColor = 'var(--cal-fill-green,rgba(52,211,153,0.4))';   numColor = 'var(--green)'; }
         else if (pct >= 40) { fillColor = 'var(--cal-fill-cyan,rgba(34,211,238,0.4))';    numColor = 'var(--brown)'; }
         else                { fillColor = 'var(--cal-fill-red,rgba(239,68,68,0.35))';     numColor = 'var(--red)'; }
+        title = `${done}/${total} tasks`;
       }
 
       const fillBar = fillHeight > 0
         ? `<div class="cal-fill" style="height:${fillHeight}%;background:${fillColor};"></div>`
         : '';
-      const title = total > 0 && !isFuture ? `${done}/${total} tasks` : '';
       const isSpecial = m.todo[wi]?.[di]?.special || false;
       const ds = m.todo[wi]?.[di]?.dayStatus || {};
       const isSick = ds.sick || false;
@@ -4289,7 +4375,7 @@ function renderTaskCalendar() {
         ${fillBar}
         ${heartMark}
         ${statusMark}
-        <span class="cal-day-num" style="color:${total > 0 && !isFuture ? numColor : 'var(--muted)'};">${date.getDate()}</span>
+        <span class="cal-day-num" style="color:${(manualRating || (total > 0 && !isFuture)) ? numColor : 'var(--muted)'};">${date.getDate()}</span>
       </div></td>`;
     });
     html += '</tr>';
@@ -4300,16 +4386,16 @@ function renderTaskCalendar() {
   // Legend
   html += `<div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap;align-items:center;">
     <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);">
-      <span style="width:10px;height:10px;border-radius:2px;background:var(--cal-fill-green,rgba(52,211,153,0.4));display:inline-block;"></span>70–100%
+      <span style="width:10px;height:10px;border-radius:2px;background:var(--cal-fill-green,rgba(52,211,153,0.4));display:inline-block;"></span>Good
     </span>
     <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);">
-      <span style="width:10px;height:10px;border-radius:2px;background:var(--cal-fill-cyan,rgba(34,211,238,0.4));display:inline-block;"></span>40–69%
+      <span style="width:10px;height:10px;border-radius:2px;background:rgba(251,191,36,0.4);display:inline-block;"></span>OK
     </span>
     <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);">
-      <span style="width:10px;height:10px;border-radius:2px;background:var(--cal-fill-red,rgba(239,68,68,0.35));display:inline-block;"></span>&lt;40%
+      <span style="width:10px;height:10px;border-radius:2px;background:var(--cal-fill-red,rgba(239,68,68,0.35));display:inline-block;"></span>Rough
     </span>
     <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);">
-      <span style="width:10px;height:10px;border-radius:2px;background:var(--light);display:inline-block;"></span>No tasks
+      <span style="width:10px;height:10px;border-radius:2px;background:var(--light);display:inline-block;"></span>Unrated
     </span>
     <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);">
       <span style="font-size:10px;">🤒</span>Sick
@@ -4317,7 +4403,8 @@ function renderTaskCalendar() {
     <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);">
       <span style="font-size:10px;">🏖️</span>Vacation
     </span>
-  </div>`;
+  </div>
+  <div style="margin-top:6px;font-size:9px;color:var(--muted);opacity:0.8;">Rate each day yourself in the To Do page. Unrated days use auto task-completion color.</div>`;
 
   el.innerHTML = html;
 }
