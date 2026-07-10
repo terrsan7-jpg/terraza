@@ -1558,6 +1558,25 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
     letter-spacing: 0.02em;
   }
 
+  /* ── SYNC PILL ── */
+  .sync-pill {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 14px; margin: 6px 12px 0;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer; user-select: none;
+    transition: all 0.15s;
+  }
+  .sync-pill:hover { border-color: var(--accent-mid); background: var(--accent-light); }
+  .sync-pill-icon { font-size: 13px; line-height: 1; flex-shrink: 0; }
+  .sync-pill-label { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sync-pill.synced { border-color: rgba(92,138,79,0.4); }
+  .sync-pill.synced .sync-pill-label { color: var(--green); }
+  .sync-pill.synced .sync-pill-icon { color: var(--green); }
+  .sync-pill.syncing .sync-pill-icon { animation: syncSpin 1s linear infinite; display:inline-block; }
+  @keyframes syncSpin { to { transform: rotate(360deg); } }
+
   /* ── BOTTOM NAV DARK ── */
   .bottom-nav { background: var(--panel); border-top: 1px solid rgba(255,255,255,0.04); }
   .bottom-nav-item { color: #444; }
@@ -1578,6 +1597,11 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   }
 
 </style>
+
+<!-- Firebase SDK (compat builds — no bundler needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -1625,6 +1649,11 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
         <div class="theme-toggle-thumb"></div>
       </div>
       <span class="theme-toggle-label" id="theme-label">Dark</span>
+    </div>
+
+    <div class="sync-pill" id="sync-pill" onclick="handleSyncClick()" title="Cloud sync">
+      <span class="sync-pill-icon" id="sync-pill-icon">☁</span>
+      <span class="sync-pill-label" id="sync-pill-label">Sync off</span>
     </div>
 
     <div class="month-selector">
@@ -2087,6 +2116,21 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
       </div>
 
       <div style="max-width: 560px;">
+        <!-- CLOUD SYNC CARD -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">☁ Cloud Sync</div>
+          <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px;">
+            Sign in with the same email on your phone and computer to keep everything in sync automatically.
+          </p>
+          <div id="sync-account-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div id="sync-account-status" style="font-size:14px;font-weight:600;color:var(--dark);">Not signed in</div>
+              <div id="sync-account-email" style="font-size:12px;color:var(--muted);margin-top:2px;"></div>
+            </div>
+            <button class="btn-brown" id="sync-account-btn" onclick="handleSyncClick()" style="padding:10px 18px;font-size:13px;">Sign In</button>
+          </div>
+        </div>
+
         <div class="export-option" onclick="exportPPTX()">
           <div class="export-icon">📊</div>
           <div>
@@ -2296,6 +2340,35 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
 
 <div class="toast" id="toast"></div>
 
+<!-- CLOUD SYNC LOGIN MODAL -->
+<div class="modal-overlay" id="sync-login-modal">
+  <div class="modal">
+    <h3>☁ Cloud Sync</h3>
+    <p id="sync-login-desc" style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.6;">
+      Sign in with the same email on your phone and computer to keep them in sync.
+    </p>
+    <div class="form-field" style="margin-bottom:12px;">
+      <label>Email</label>
+      <input type="email" id="sync-email" placeholder="you@example.com" autocomplete="username"
+        style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--font-body);font-size:14px;background:var(--surface-2);color:var(--dark);">
+    </div>
+    <div class="form-field" style="margin-bottom:16px;">
+      <label>Password</label>
+      <input type="password" id="sync-password" placeholder="At least 6 characters" autocomplete="current-password"
+        style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--font-body);font-size:14px;background:var(--surface-2);color:var(--dark);">
+    </div>
+    <div id="sync-login-error" style="display:none;font-size:12px;color:var(--red);margin-bottom:12px;"></div>
+    <div class="btn-row" style="gap:10px;">
+      <button class="btn-brown" id="sync-signin-btn" onclick="syncSignIn()">Sign In</button>
+      <button class="btn-secondary" onclick="syncSignUp()">Create Account</button>
+    </div>
+    <div style="margin-top:14px;text-align:center;">
+      <button onclick="document.getElementById('sync-login-modal').classList.remove('open')"
+        style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:var(--font-body);text-decoration:underline;">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- CLEAR DATA CONFIRM MODAL -->
 <div class="modal-overlay" id="clear-confirm-modal">
   <div class="modal">
@@ -2441,13 +2514,246 @@ function saveData() {
   // Immediate save for critical actions (toggles, deletes, creates)
   // Debounced via saveDataDebounced() for text input
   if (_saveTimer) clearTimeout(_saveTimer);
+  appData._updatedAt = Date.now();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+  queueCloudPush();
 }
 function saveDataDebounced() {
   if (_saveTimer) clearTimeout(_saveTimer);
   _saveTimer = setTimeout(() => {
+    appData._updatedAt = Date.now();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    queueCloudPush();
   }, 500);
+}
+
+// ═══════════════════════════════════════════
+// CLOUD SYNC (Firebase)
+// ═══════════════════════════════════════════
+
+// ⬇⬇⬇ PASTE YOUR FIREBASE CONFIG VALUES HERE ⬇⬇⬇
+const FIREBASE_CONFIG = {
+  apiKey: "PASTE_apiKey",
+  authDomain: "PASTE_authDomain",
+  projectId: "PASTE_projectId",
+  storageBucket: "PASTE_storageBucket",
+  messagingSenderId: "PASTE_messagingSenderId",
+  appId: "PASTE_appId"
+};
+// ⬆⬆⬆ PASTE YOUR FIREBASE CONFIG VALUES HERE ⬆⬆⬆
+
+let _fbApp = null, _fbAuth = null, _fbDb = null;
+let _fbUser = null;
+let _cloudPushTimer = null;
+let _cloudUnsub = null;
+let _adoptingCloud = false; // guard: don't re-push while adopting a cloud snapshot
+
+function firebaseConfigured() {
+  return FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith('PASTE_');
+}
+
+function initFirebase() {
+  if (!firebaseConfigured()) {
+    updateSyncPill('off', 'Sync off');
+    updateSyncAccountCard();
+    return;
+  }
+  if (typeof firebase === 'undefined') {
+    updateSyncPill('off', 'Sync unavailable');
+    updateSyncAccountCard();
+    return;
+  }
+  try {
+    _fbApp = firebase.initializeApp(FIREBASE_CONFIG);
+    _fbAuth = firebase.auth();
+    _fbDb = firebase.firestore();
+    // Keep user logged in across reloads
+    _fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+
+    _fbAuth.onAuthStateChanged(user => {
+      _fbUser = user;
+      if (user) {
+        startCloudSync(user.uid);
+      } else {
+        stopCloudSync();
+        updateSyncPill('off', 'Sign in');
+      }
+      updateSyncAccountCard();
+    });
+  } catch (e) {
+    console.warn('Firebase init failed', e);
+    updateSyncPill('off', 'Sync error');
+  }
+}
+
+function docRef(uid) {
+  return _fbDb.collection('users').doc(uid).collection('data').doc('appData');
+}
+
+function startCloudSync(uid) {
+  updateSyncPill('syncing', 'Syncing…');
+  // Realtime listener — fires on our own writes AND remote device writes
+  if (_cloudUnsub) _cloudUnsub();
+  _cloudUnsub = docRef(uid).onSnapshot(snap => {
+    if (!snap.exists) {
+      // No cloud data yet — push whatever we have locally
+      pushToCloudNow();
+      return;
+    }
+    const cloud = snap.data();
+    const cloudTs = cloud._updatedAt || 0;
+    const localTs = appData._updatedAt || 0;
+    if (cloudTs > localTs) {
+      // Cloud is newer — adopt it
+      _adoptingCloud = true;
+      appData = cloud;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+      refreshAllViews();
+      _adoptingCloud = false;
+      updateSyncPill('synced', 'Synced ✓');
+    } else {
+      // Local is newer or equal — make sure cloud has our latest
+      if (localTs > cloudTs) pushToCloudNow();
+      else updateSyncPill('synced', 'Synced ✓');
+    }
+  }, err => {
+    console.warn('Cloud sync error', err);
+    updateSyncPill('off', 'Sync error');
+  });
+}
+
+function stopCloudSync() {
+  if (_cloudUnsub) { _cloudUnsub(); _cloudUnsub = null; }
+}
+
+function queueCloudPush() {
+  if (!_fbUser || _adoptingCloud) return;
+  updateSyncPill('syncing', 'Saving…');
+  if (_cloudPushTimer) clearTimeout(_cloudPushTimer);
+  _cloudPushTimer = setTimeout(pushToCloudNow, 800);
+}
+
+function pushToCloudNow() {
+  if (!_fbUser || !_fbDb) return;
+  if (!appData._updatedAt) appData._updatedAt = Date.now();
+  docRef(_fbUser.uid).set(appData)
+    .then(() => updateSyncPill('synced', 'Synced ✓'))
+    .catch(err => { console.warn('push failed', err); updateSyncPill('off', 'Sync error'); });
+}
+
+function refreshAllViews() {
+  try {
+    buildMonthSelector();
+    if (typeof renderWeekTabs === 'function') renderWeekTabs();
+    if (typeof renderTodoWeekTabs === 'function') renderTodoWeekTabs();
+    showPage(currentPage);
+  } catch (e) { /* view refresh best-effort */ }
+}
+
+function updateSyncAccountCard() {
+  const status = document.getElementById('sync-account-status');
+  const email = document.getElementById('sync-account-email');
+  const btn = document.getElementById('sync-account-btn');
+  if (!status) return;
+  if (!firebaseConfigured()) {
+    status.textContent = 'Not set up yet';
+    if (email) email.textContent = 'Cloud sync is not configured on this app.';
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+  if (_fbUser) {
+    status.textContent = 'Signed in ✓';
+    if (email) email.textContent = _fbUser.email || '';
+    if (btn) { btn.style.display = ''; btn.textContent = 'Sign Out'; }
+  } else {
+    status.textContent = 'Not signed in';
+    if (email) email.textContent = '';
+    if (btn) { btn.style.display = ''; btn.textContent = 'Sign In'; }
+  }
+}
+
+function updateSyncPill(state, text) {
+  const pill = document.getElementById('sync-pill');
+  const icon = document.getElementById('sync-pill-icon');
+  const label = document.getElementById('sync-pill-label');
+  if (!pill) return;
+  pill.classList.remove('synced', 'syncing');
+  if (state === 'synced') { pill.classList.add('synced'); if (icon) icon.textContent = '☁'; }
+  else if (state === 'syncing') { pill.classList.add('syncing'); if (icon) icon.textContent = '↻'; }
+  else { if (icon) icon.textContent = '☁'; }
+  if (label) label.textContent = text;
+}
+
+function handleSyncClick() {
+  if (!firebaseConfigured()) {
+    showToast('Cloud sync not set up yet');
+    return;
+  }
+  if (_fbUser) {
+    if (confirm(`Signed in as ${_fbUser.email}.\n\nSign out of cloud sync on this device?`)) {
+      _fbAuth.signOut();
+      showToast('Signed out');
+    }
+  } else {
+    openSyncLogin();
+  }
+}
+
+function openSyncLogin() {
+  const err = document.getElementById('sync-login-error');
+  if (err) err.style.display = 'none';
+  document.getElementById('sync-login-modal').classList.add('open');
+}
+
+function _syncLoginError(msg) {
+  const err = document.getElementById('sync-login-error');
+  if (err) { err.textContent = msg; err.style.display = 'block'; }
+}
+
+function syncSignIn() {
+  const email = document.getElementById('sync-email').value.trim();
+  const pass = document.getElementById('sync-password').value;
+  if (!email || !pass) { _syncLoginError('Enter email and password.'); return; }
+  updateSyncPill('syncing', 'Signing in…');
+  _fbAuth.signInWithEmailAndPassword(email, pass)
+    .then(() => {
+      document.getElementById('sync-login-modal').classList.remove('open');
+      document.getElementById('sync-password').value = '';
+      showToast('Signed in — syncing ☁');
+    })
+    .catch(err => {
+      _syncLoginError(_friendlyAuthError(err));
+      updateSyncPill('off', 'Sign in');
+    });
+}
+
+function syncSignUp() {
+  const email = document.getElementById('sync-email').value.trim();
+  const pass = document.getElementById('sync-password').value;
+  if (!email || !pass) { _syncLoginError('Enter email and a password (6+ chars).'); return; }
+  if (pass.length < 6) { _syncLoginError('Password must be at least 6 characters.'); return; }
+  updateSyncPill('syncing', 'Creating…');
+  _fbAuth.createUserWithEmailAndPassword(email, pass)
+    .then(() => {
+      document.getElementById('sync-login-modal').classList.remove('open');
+      document.getElementById('sync-password').value = '';
+      showToast('Account created — syncing ☁');
+    })
+    .catch(err => {
+      _syncLoginError(_friendlyAuthError(err));
+      updateSyncPill('off', 'Sign in');
+    });
+}
+
+function _friendlyAuthError(err) {
+  const code = err && err.code || '';
+  if (code === 'auth/invalid-email') return 'That email address looks invalid.';
+  if (code === 'auth/user-not-found') return 'No account with that email. Try "Create Account".';
+  if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') return 'Wrong email or password.';
+  if (code === 'auth/email-already-in-use') return 'Account exists — use "Sign In" instead.';
+  if (code === 'auth/weak-password') return 'Password too weak (use 6+ characters).';
+  if (code === 'auth/network-request-failed') return 'Network error — check your connection.';
+  return err && err.message || 'Something went wrong.';
 }
 
 function getMonthKey(name, year) { return `${name}_${year}`; }
@@ -5532,6 +5838,9 @@ function initWeekTabs() {
   });
 }
 initWeekTabs();
+
+// ── Start cloud sync (if Firebase is configured) ──
+initFirebase();
 
 // ── KILL ALL SERVICE WORKERS ──
 if ('serviceWorker' in navigator) {
