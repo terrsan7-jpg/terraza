@@ -1644,6 +1644,63 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
     }
   }
 
+  /* ── FIRST-TIME TUTORIAL ── */
+  .tut-overlay {
+    position: fixed; inset: 0; z-index: 3000;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .tut-overlay.open { display: flex; }
+  .tut-modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 22px; width: 100%; max-width: 400px;
+    padding: 28px 24px 22px; position: relative;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+    animation: tutIn 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  @keyframes tutIn { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
+  .tut-skip {
+    position: absolute; top: 14px; right: 16px;
+    background: none; border: none; color: var(--muted);
+    font-size: 12px; cursor: pointer; font-family: var(--font-body);
+    padding: 4px 6px; border-radius: 6px; transition: color 0.15s;
+  }
+  .tut-skip:hover { color: var(--dark); }
+  .tut-slides { overflow: hidden; position: relative; }
+  .tut-slide { display: none; text-align: center; padding: 12px 4px 8px; }
+  .tut-slide.active { display: block; animation: tutSlide 0.3s ease; }
+  @keyframes tutSlide { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+  .tut-emoji { font-size: 44px; line-height: 1; margin: 8px 0 18px; }
+  .tut-title {
+    font-family: var(--font-body); font-size: 21px; font-weight: 700;
+    letter-spacing: -0.03em; color: var(--dark); margin-bottom: 10px;
+  }
+  .tut-text { font-size: 14px; line-height: 1.6; color: var(--muted); max-width: 320px; margin: 0 auto; }
+  .tut-text b { color: var(--dark); font-weight: 600; }
+  .tut-dots { display: flex; justify-content: center; gap: 6px; margin: 20px 0 18px; }
+  .tut-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--border-mid); transition: all 0.2s;
+  }
+  .tut-dot.active { width: 18px; border-radius: 3px; background: var(--gold); }
+  .tut-nav { display: flex; gap: 10px; align-items: center; }
+  .tut-btn-back {
+    background: none; border: 1px solid var(--border);
+    color: var(--muted); border-radius: var(--radius-btn);
+    padding: 11px 18px; font-family: var(--font-body); font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .tut-btn-back:hover { border-color: var(--muted); color: var(--dark); }
+  .tut-btn-back:disabled { opacity: 0.35; cursor: default; }
+  .tut-btn-next {
+    flex: 1; background: var(--gold); color: #fff; border: none;
+    border-radius: var(--radius-btn); padding: 12px 18px;
+    font-family: var(--font-body); font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.18s;
+  }
+  .tut-btn-next:hover { filter: brightness(1.05); transform: translateY(-1px); }
+
 </style>
 
 <!-- Firebase SDK (compat builds — no bundler needed) -->
@@ -2188,6 +2245,14 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
           </div>
         </div>
 
+        <div class="export-option" onclick="openTutorial()">
+          <div class="export-icon">📖</div>
+          <div>
+            <div class="export-title">How to use Terraza</div>
+            <div class="export-desc">Replay the quick welcome tour of the app's main features.</div>
+          </div>
+        </div>
+
         <div class="export-option" onclick="exportPPTX()">
           <div class="export-icon">📊</div>
           <div>
@@ -2423,6 +2488,50 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
     <div style="margin-top:14px;text-align:center;">
       <button onclick="document.getElementById('sync-login-modal').classList.remove('open')"
         style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:var(--font-body);text-decoration:underline;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- FIRST-TIME TUTORIAL -->
+<div class="tut-overlay" id="tutorial-overlay">
+  <div class="tut-modal">
+    <button class="tut-skip" onclick="closeTutorial()">Skip</button>
+    <div class="tut-slides" id="tut-slides">
+      <div class="tut-slide">
+        <div class="tut-emoji">🌿</div>
+        <div class="tut-title">Welcome to Terraza</div>
+        <div class="tut-text">Your personal space to set goals, build habits, and reflect week by week. Here's a 30-second tour.</div>
+      </div>
+      <div class="tut-slide">
+        <div class="tut-emoji">🗓️</div>
+        <div class="tut-title">Start with a month</div>
+        <div class="tut-text">Tap <b>+ New Month</b> to begin. Each month holds your goals, weekly reviews, and daily to-dos — all in one place.</div>
+      </div>
+      <div class="tut-slide">
+        <div class="tut-emoji">🎯</div>
+        <div class="tut-title">Set your monthly goals</div>
+        <div class="tut-text">In <b>Monthly Goals</b>, add your <b>primary</b> and <b>secondary</b> goals for the month. Check them off as you achieve them.</div>
+      </div>
+      <div class="tut-slide">
+        <div class="tut-emoji">🔄</div>
+        <div class="tut-title">Plan your weeks &amp; days</div>
+        <div class="tut-text">In <b>Weekly Review</b>, add weekly goals by category and tap the <b>day-dots</b> to schedule them. Scheduled goals show up automatically in your daily <b>To Do</b> list.</div>
+      </div>
+      <div class="tut-slide">
+        <div class="tut-emoji">✓</div>
+        <div class="tut-title">Do it &amp; rate your day</div>
+        <div class="tut-text">Check off tasks in <b>To Do</b>, add extras, swipe left to delete, or tap → to move a task to tomorrow. Then pick a <b>color</b> for how your day went: 🟢 good, 🟡 ok, 🔴 rough.</div>
+      </div>
+      <div class="tut-slide">
+        <div class="tut-emoji">📊</div>
+        <div class="tut-title">Watch it all come together</div>
+        <div class="tut-text">Your <b>Dashboard</b> tracks progress, streaks, and a color-coded calendar. Everything syncs across your phone and computer when you sign in to <b>Cloud Sync</b>.</div>
+      </div>
+    </div>
+    <div class="tut-dots" id="tut-dots"></div>
+    <div class="tut-nav">
+      <button class="tut-btn-back" id="tut-back" onclick="tutPrev()">Back</button>
+      <button class="tut-btn-next" id="tut-next" onclick="tutNext()">Next</button>
     </div>
   </div>
 </div>
@@ -2794,6 +2903,10 @@ function syncSignUp() {
       document.getElementById('sync-login-modal').classList.remove('open');
       document.getElementById('sync-password').value = '';
       showToast('Account created — syncing ☁');
+      // Brand-new account with no data yet → show the welcome tutorial
+      if (Object.keys(appData.months || {}).length === 0) {
+        setTimeout(openTutorial, 400);
+      }
     })
     .catch(err => {
       _syncLoginError(_friendlyAuthError(err));
@@ -5910,6 +6023,77 @@ function renderYearView() {
 }
 
 // ═══════════════════════════════════════════
+// FIRST-TIME TUTORIAL
+// ═══════════════════════════════════════════
+
+let _tutStep = 0;
+const TUT_SEEN_KEY = 'terraza_tutorial_seen';
+
+function _tutSlides() { return document.querySelectorAll('#tut-slides .tut-slide'); }
+
+function openTutorial() {
+  _tutStep = 0;
+  const overlay = document.getElementById('tutorial-overlay');
+  if (!overlay) return;
+  // Build dots
+  const dotsEl = document.getElementById('tut-dots');
+  const n = _tutSlides().length;
+  dotsEl.innerHTML = Array.from({length: n}, (_, i) => `<div class="tut-dot" data-i="${i}"></div>`).join('');
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  _tutRender();
+}
+
+function _tutRender() {
+  const slides = _tutSlides();
+  const n = slides.length;
+  slides.forEach((s, i) => s.classList.toggle('active', i === _tutStep));
+  document.querySelectorAll('#tut-dots .tut-dot').forEach((d, i) => d.classList.toggle('active', i === _tutStep));
+  const back = document.getElementById('tut-back');
+  const next = document.getElementById('tut-next');
+  if (back) back.disabled = _tutStep === 0;
+  if (next) next.textContent = (_tutStep === n - 1) ? 'Get Started' : 'Next';
+}
+
+function tutNext() {
+  const n = _tutSlides().length;
+  if (_tutStep < n - 1) {
+    _tutStep++;
+    _tutRender();
+  } else {
+    // Last slide → finish and open New Month if they have none
+    closeTutorial();
+    if (!getActiveMonth() && typeof openAddMonth === 'function') {
+      setTimeout(openAddMonth, 250);
+    }
+  }
+}
+
+function tutPrev() {
+  if (_tutStep > 0) { _tutStep--; _tutRender(); }
+}
+
+function closeTutorial() {
+  const overlay = document.getElementById('tutorial-overlay');
+  if (overlay) overlay.classList.remove('open');
+  document.body.style.overflow = '';
+  localStorage.setItem(TUT_SEEN_KEY, '1');
+}
+
+function maybeShowTutorialOnLoad() {
+  const seen = localStorage.getItem(TUT_SEEN_KEY);
+  const hasData = Object.keys(appData.months || {}).length > 0;
+  if (hasData) {
+    // Existing user — never auto-show, and mark as seen so it stays quiet
+    localStorage.setItem(TUT_SEEN_KEY, '1');
+    return;
+  }
+  if (!seen) {
+    setTimeout(openTutorial, 400);
+  }
+}
+
+// ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
 
@@ -5934,6 +6118,9 @@ initWeekTabs();
 
 // ── Start cloud sync (if Firebase is configured) ──
 initFirebase();
+
+// ── First-time tutorial ──
+maybeShowTutorialOnLoad();
 
 // ── REGISTER SERVICE WORKER (needed for notifications on iOS/Android) ──
 // The SW has no fetch handler, so it never caches — no stale-file risk.
