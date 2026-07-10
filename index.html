@@ -441,6 +441,13 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   }
   .day-rating-clear:hover { border-color: var(--muted); color: var(--dark); }
   .day-rating-clear.selected { border-color: var(--gold); color: var(--gold); }
+  @media (max-width: 480px) {
+    .day-rating-bar { gap: 6px; padding: 5px 9px; margin-top: 8px; border-radius: 8px; }
+    .day-rating-label { font-size: 10px; margin-right: 0; }
+    .day-rating-dot { width: 17px; height: 17px; border-width: 1.5px; }
+    .day-rating-dot.selected::after { font-size: 9px; }
+    .day-rating-clear { font-size: 9px; padding: 3px 6px; }
+  }
   .todo-did-well-btn {
     font-size: 12px; flex-shrink: 0; cursor: pointer;
     background: none; border: 1px solid var(--border);
