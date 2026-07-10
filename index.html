@@ -1983,8 +1983,13 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
     <!-- MONTHLY GOALS -->
     <div class="page" id="page-monthly">
       <div class="page-header">
-        <div class="page-title">Monthly Goals</div>
-        <div class="page-subtitle">Set your primary and secondary goals for the month</div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+          <div>
+            <div class="page-title">Monthly Goals</div>
+            <div class="page-subtitle">Set your primary and secondary goals for the month</div>
+          </div>
+          <button class="btn-primary" onclick="openAddMonth()" style="flex-shrink:0;">+ New Month</button>
+        </div>
       </div>
 
       <div class="card">
@@ -2151,14 +2156,11 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
         <div class="page-title">All Months</div>
         <div class="page-subtitle">Your complete goal history</div>
       </div>
-      <div style="margin-bottom:20px;">
-        <button class="btn-primary" onclick="openAddMonth()">+ New Month</button>
-      </div>
       <div class="months-grid" id="months-grid">
         <div class="empty-state">
           <div class="empty-icon">📅</div>
           <div class="empty-title">No months yet</div>
-          <div class="empty-desc">Add your first month to get started.</div>
+          <div class="empty-desc">Go to Monthly Goals and tap + New Month to get started.</div>
         </div>
       </div>
     </div>
@@ -5568,7 +5570,7 @@ function renderHistory() {
   });
 
   if (!months.length) {
-    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">No months yet</div><div class="empty-desc">Add your first month to get started.</div></div>`;
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">No months yet</div><div class="empty-desc">Go to <span style="color:var(--gold);cursor:pointer;font-weight:600;" onclick="showPage('monthly')">Monthly Goals</span> and tap + New Month to get started.</div></div>`;
     return;
   }
 
