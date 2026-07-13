@@ -2254,7 +2254,7 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
         <div class="card" style="margin-bottom:16px;">
           <div class="card-title">🗄️ Cloud Backups</div>
           <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px;">
-            A snapshot of your data is saved automatically each day you use the app (the last 7 are kept). If anything ever goes wrong, restore from one here.
+            A snapshot of your data is saved automatically each day you use the app (the last 30 days are kept). If anything ever goes wrong, restore from one here.
           </p>
           <button class="btn-secondary" onclick="loadBackupList()" style="padding:10px 18px;font-size:13px;">View backups</button>
           <div id="backup-list" style="margin-top:12px;"></div>
@@ -2872,7 +2872,7 @@ function pushToCloudNow() {
 }
 
 // ── DAILY BACKUPS ──
-// Keeps a rolling set of the last 7 daily snapshots so data can be
+// Keeps a rolling set of the last 30 daily snapshots so data can be
 // recovered if the main copy is ever wiped or corrupted.
 function backupCol(uid) {
   return _fbDb.collection('users').doc(uid).collection('backups');
@@ -2892,7 +2892,7 @@ function maybeBackup() {
   const copy = JSON.parse(JSON.stringify(appData));
   copy._backupAt = Date.now();
   backupCol(_fbUser.uid).doc(today).set(copy)
-    .then(() => { localStorage.setItem(flag, _fbUser.uid + '|' + today); pruneBackups(7); })
+    .then(() => { localStorage.setItem(flag, _fbUser.uid + '|' + today); pruneBackups(30); })
     .catch(err => console.warn('backup failed', err));
 }
 
