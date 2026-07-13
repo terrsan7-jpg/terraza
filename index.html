@@ -2502,11 +2502,16 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
         style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--font-body);font-size:14px;background:var(--surface-2);color:var(--dark);">
     </div>
     <div id="sync-login-error" style="display:none;font-size:12px;color:var(--red);margin-bottom:12px;"></div>
+    <div id="sync-login-msg" style="display:none;font-size:12px;color:var(--green);margin-bottom:12px;"></div>
     <div class="btn-row" style="gap:10px;">
       <button class="btn-brown" id="sync-signin-btn" onclick="syncSignIn()">Sign In</button>
       <button class="btn-secondary" onclick="syncSignUp()">Create Account</button>
     </div>
-    <div style="margin-top:14px;text-align:center;">
+    <div style="margin-top:12px;text-align:center;">
+      <button onclick="syncForgotPassword()"
+        style="background:none;border:none;color:var(--gold);font-size:12px;cursor:pointer;font-family:var(--font-body);text-decoration:underline;">Forgot password?</button>
+    </div>
+    <div style="margin-top:10px;text-align:center;">
       <button onclick="document.getElementById('sync-login-modal').classList.remove('open')"
         style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:var(--font-body);text-decoration:underline;">Cancel</button>
     </div>
@@ -2893,13 +2898,37 @@ function handleSyncClick() {
 
 function openSyncLogin() {
   const err = document.getElementById('sync-login-error');
+  const msg = document.getElementById('sync-login-msg');
   if (err) err.style.display = 'none';
+  if (msg) msg.style.display = 'none';
   document.getElementById('sync-login-modal').classList.add('open');
 }
 
 function _syncLoginError(msg) {
   const err = document.getElementById('sync-login-error');
+  const okMsg = document.getElementById('sync-login-msg');
+  if (okMsg) okMsg.style.display = 'none';
   if (err) { err.textContent = msg; err.style.display = 'block'; }
+}
+
+function _syncLoginMsg(msg) {
+  const err = document.getElementById('sync-login-error');
+  const okMsg = document.getElementById('sync-login-msg');
+  if (err) err.style.display = 'none';
+  if (okMsg) { okMsg.textContent = msg; okMsg.style.display = 'block'; }
+}
+
+function syncForgotPassword() {
+  const email = document.getElementById('sync-email').value.trim();
+  if (!email) { _syncLoginError('Enter your email above first, then tap "Forgot password?".'); return; }
+  if (!_fbAuth) { _syncLoginError('Sync is not available right now.'); return; }
+  _fbAuth.sendPasswordResetEmail(email)
+    .then(() => {
+      _syncLoginMsg('Reset link sent to ' + email + '. Check your inbox (and spam).');
+    })
+    .catch(err => {
+      _syncLoginError(_friendlyAuthError(err));
+    });
 }
 
 function syncSignIn() {
