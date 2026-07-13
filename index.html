@@ -2247,6 +2247,40 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
           </div>
         </div>
 
+        <!-- CATEGORY NAMES CARD -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">🏷️ Category Names</div>
+          <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px;">
+            Rename the four goal categories to fit your life. Your goals and history stay exactly the same — only the labels change.
+          </p>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="width:10px;height:10px;border-radius:50%;background:#34D399;flex-shrink:0;"></span>
+              <input id="cat-name-health" maxlength="24" placeholder="Health"
+                style="flex:1;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:var(--font-body);font-size:14px;background:var(--surface-2);color:var(--dark);">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="width:10px;height:10px;border-radius:50%;background:#818CF8;flex-shrink:0;"></span>
+              <input id="cat-name-personal" maxlength="24" placeholder="Personal Dev"
+                style="flex:1;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:var(--font-body);font-size:14px;background:var(--surface-2);color:var(--dark);">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="width:10px;height:10px;border-radius:50%;background:#FB923C;flex-shrink:0;"></span>
+              <input id="cat-name-relationships" maxlength="24" placeholder="Relationships"
+                style="flex:1;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:var(--font-body);font-size:14px;background:var(--surface-2);color:var(--dark);">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="width:10px;height:10px;border-radius:50%;background:#FBBF24;flex-shrink:0;"></span>
+              <input id="cat-name-finance" maxlength="24" placeholder="Finance / Career"
+                style="flex:1;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:var(--font-body);font-size:14px;background:var(--surface-2);color:var(--dark);">
+            </div>
+          </div>
+          <div class="btn-row" style="gap:10px;margin-top:14px;">
+            <button class="btn-brown" onclick="saveCategoryLabels()" style="padding:10px 18px;font-size:13px;">Save Names</button>
+            <button class="btn-secondary" onclick="resetCategoryLabels()" style="padding:10px 18px;font-size:13px;">Reset</button>
+          </div>
+        </div>
+
         <div class="export-option" onclick="openTutorial()">
           <div class="export-icon">📖</div>
           <div>
@@ -2810,6 +2844,7 @@ function pushToCloudNow() {
 
 function refreshAllViews() {
   try {
+    if (typeof refreshCategoryLabels === 'function') refreshCategoryLabels();
     buildMonthSelector();
     if (typeof renderWeekTabs === 'function') renderWeekTabs();
     if (typeof renderTodoWeekTabs === 'function') renderTodoWeekTabs();
@@ -3049,7 +3084,7 @@ function showPage(id) {
     }
   }
   if (id === 'history') renderHistory();
-  if (id === 'export') loadNotifSettings();
+  if (id === 'export') { loadNotifSettings(); loadCategoryLabels(); }
   if (id === 'year') renderYearView();
   // Update swipe position dots if they exist
   if (typeof window.flashSwipeDots === 'function') window.flashSwipeDots();
@@ -3324,10 +3359,10 @@ function renderDashboard() {
   // Category rings
   const rings = document.getElementById('rings-row');
   const cats = [
-    { key: 'health', label: 'Health', color: '#34D399' },
-    { key: 'personal', label: 'Personal', color: '#818CF8' },
-    { key: 'relationships', label: 'Relationships', color: '#FB923C' },
-    { key: 'finance', label: 'Finance', color: '#FBBF24' },
+    { key: 'health', label: catLabel('health'), color: '#34D399' },
+    { key: 'personal', label: catLabel('personal'), color: '#818CF8' },
+    { key: 'relationships', label: catLabel('relationships'), color: '#FB923C' },
+    { key: 'finance', label: catLabel('finance'), color: '#FBBF24' },
   ];
   function weekHasRealData(w) {
     if (!w) return false;
@@ -3429,12 +3464,76 @@ const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 // TO DO LIST
 // ═══════════════════════════════════════════
 
+// Default category display names — users can rename these (stored in appData.categoryLabels)
+const DEFAULT_CAT_LABELS = {
+  health: 'Health',
+  personal: 'Personal Dev',
+  relationships: 'Relationships',
+  finance: 'Finance / Career'
+};
+function catLabel(key) {
+  const custom = appData.categoryLabels && appData.categoryLabels[key];
+  return (custom && custom.trim()) ? custom.trim() : (DEFAULT_CAT_LABELS[key] || key);
+}
+
 const TODO_CATS = [
-  { key: 'health',        label: 'Health',        bg: 'rgba(52,211,153,0.1)', color: '#34D399' },
-  { key: 'personal',      label: 'Personal',      bg: 'rgba(129,140,248,0.1)', color: '#818CF8' },
-  { key: 'relationships', label: 'Relations',     bg: 'rgba(251,146,60,0.1)', color: '#FB923C' },
-  { key: 'finance',       label: 'Finance',       bg: 'rgba(251,191,36,0.1)', color: '#FBBF24' },
+  { key: 'health',        bg: 'rgba(52,211,153,0.1)', color: '#34D399' },
+  { key: 'personal',      bg: 'rgba(129,140,248,0.1)', color: '#818CF8' },
+  { key: 'relationships', bg: 'rgba(251,146,60,0.1)', color: '#FB923C' },
+  { key: 'finance',       bg: 'rgba(251,191,36,0.1)', color: '#FBBF24' },
 ];
+// `label` reflects the user's custom name automatically
+TODO_CATS.forEach(c => Object.defineProperty(c, 'label', {
+  get() { return catLabel(c.key); }, enumerable: true, configurable: true
+}));
+
+// Update all static category tags in the HTML (identified by their cat-KEY class)
+function refreshCategoryLabels() {
+  const KEYS = ['health','personal','relationships','finance'];
+  document.querySelectorAll('.cat-tag').forEach(el => {
+    const key = KEYS.find(k => el.classList.contains('cat-' + k));
+    if (key) el.textContent = catLabel(key);
+  });
+}
+
+// Populate the rename inputs on the settings page
+function loadCategoryLabels() {
+  ['health','personal','relationships','finance'].forEach(k => {
+    const el = document.getElementById('cat-name-' + k);
+    if (el) el.value = catLabel(k);
+  });
+}
+
+function saveCategoryLabels() {
+  if (!appData.categoryLabels) appData.categoryLabels = {};
+  ['health','personal','relationships','finance'].forEach(k => {
+    const el = document.getElementById('cat-name-' + k);
+    if (el) {
+      const v = el.value.trim();
+      appData.categoryLabels[k] = v || DEFAULT_CAT_LABELS[k];
+    }
+  });
+  saveData();
+  refreshCategoryLabels();
+  // Re-render any visible view that shows category names
+  if (currentPage === 'dashboard') renderDashboard();
+  if (currentPage === 'weekly') renderWeeklyForm(currentWeekTab);
+  if (currentPage === 'todo') renderTodo();
+  loadCategoryLabels();
+  showToast('Category names saved ✓');
+}
+
+function resetCategoryLabels() {
+  appData.categoryLabels = {};
+  saveData();
+  refreshCategoryLabels();
+  loadCategoryLabels();
+  if (currentPage === 'dashboard') renderDashboard();
+  if (currentPage === 'weekly') renderWeeklyForm(currentWeekTab);
+  if (currentPage === 'todo') renderTodo();
+  showToast('Category names reset to default');
+}
+
 const TODO_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 let currentTodoDay = 0;
@@ -4761,10 +4860,10 @@ function renderWeekDash() {
   const items = w.goalItems || {};
 
   const CATS = [
-    { key: 'health',        label: 'Health',         bg: 'rgba(52,211,153,0.1)', color: '#34D399' },
-    { key: 'personal',      label: 'Personal Dev',   bg: 'rgba(129,140,248,0.1)', color: '#818CF8' },
-    { key: 'relationships', label: 'Relationships',  bg: 'rgba(251,146,60,0.1)', color: '#FB923C' },
-    { key: 'finance',       label: 'Finance / Career', bg: 'rgba(251,191,36,0.1)', color: '#FBBF24' },
+    { key: 'health',        label: catLabel('health'),        bg: 'rgba(52,211,153,0.1)', color: '#34D399' },
+    { key: 'personal',      label: catLabel('personal'),      bg: 'rgba(129,140,248,0.1)', color: '#818CF8' },
+    { key: 'relationships', label: catLabel('relationships'), bg: 'rgba(251,146,60,0.1)', color: '#FB923C' },
+    { key: 'finance',       label: catLabel('finance'),       bg: 'rgba(251,191,36,0.1)', color: '#FBBF24' },
   ];
 
   const hasAnyGoals = CATS.some(c => (items[c.key]||[]).some(i => i && i.text));
@@ -6118,6 +6217,9 @@ function initWeekTabs() {
 }
 initWeekTabs();
 
+// ── Apply any custom category names to the static labels ──
+refreshCategoryLabels();
+
 // ── Start cloud sync (if Firebase is configured) ──
 initFirebase();
 
@@ -6545,7 +6647,7 @@ function handleAiReviewOverlayClick(e) {
 function buildMonthlyReviewPrompt(m) {
   const DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const CATS = ['health','personal','relationships','finance'];
-  const CAT_LABELS = { health: 'Health', personal: 'Personal Dev', relationships: 'Relationships', finance: 'Finance/Career' };
+  const CAT_LABELS = { health: catLabel('health'), personal: catLabel('personal'), relationships: catLabel('relationships'), finance: catLabel('finance') };
   const weeks = getMonthWeeks(m.name, m.year);
 
   // Monthly goals
