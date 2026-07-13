@@ -2743,6 +2743,7 @@ let _fbUser = null;
 let _cloudPushTimer = null;
 let _cloudUnsub = null;
 let _adoptingCloud = false; // guard: don't re-push while adopting a cloud snapshot
+let _initialCloudRead = false; // guard: never write to cloud before reading it once
 
 function firebaseConfigured() {
   return FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith('PASTE_');
@@ -2786,32 +2787,52 @@ function docRef(uid) {
   return _fbDb.collection('users').doc(uid).collection('data').doc('appData');
 }
 
+function _monthCount(data) {
+  return (data && data.months) ? Object.keys(data.months).length : 0;
+}
+
+function adoptCloud(cloud) {
+  _adoptingCloud = true;
+  appData = cloud;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+  refreshAllViews();
+  _adoptingCloud = false;
+  updateSyncPill('synced', 'Synced ✓');
+}
+
 function startCloudSync(uid) {
   updateSyncPill('syncing', 'Syncing…');
+  _initialCloudRead = false; // block pushes until we've read the cloud once
   // Realtime listener — fires on our own writes AND remote device writes
   if (_cloudUnsub) _cloudUnsub();
   _cloudUnsub = docRef(uid).onSnapshot(snap => {
-    if (!snap.exists) {
-      // No cloud data yet — push whatever we have locally
-      pushToCloudNow();
+    const cloud = snap.exists ? snap.data() : null;
+    const cloudMonths = _monthCount(cloud);
+    const localMonths = _monthCount(appData);
+    const cloudTs = (cloud && cloud._updatedAt) || 0;
+    const localTs = appData._updatedAt || 0;
+
+    if (!_initialCloudRead) {
+      // FIRST read after sign-in. Decide by DATA PRESENCE, not just timestamp,
+      // so an empty/evicted local copy can never wipe real cloud data.
+      _initialCloudRead = true;
+      if (cloudMonths > 0 && localMonths === 0) {
+        adoptCloud(cloud);                 // restore from cloud (local was empty)
+      } else if (cloudMonths > 0 && localMonths > 0) {
+        if (cloudTs > localTs) adoptCloud(cloud);
+        else if (localTs > cloudTs) pushToCloudNow();
+        else updateSyncPill('synced', 'Synced ✓');
+      } else if (localMonths > 0) {
+        pushToCloudNow();                  // cloud empty/missing — seed it from local
+      } else {
+        updateSyncPill('synced', 'Synced ✓'); // both empty — nothing to do
+      }
       return;
     }
-    const cloud = snap.data();
-    const cloudTs = cloud._updatedAt || 0;
-    const localTs = appData._updatedAt || 0;
-    if (cloudTs > localTs) {
-      // Cloud is newer — adopt it
-      _adoptingCloud = true;
-      appData = cloud;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-      refreshAllViews();
-      _adoptingCloud = false;
-      updateSyncPill('synced', 'Synced ✓');
-    } else {
-      // Local is newer or equal — make sure cloud has our latest
-      if (localTs > cloudTs) pushToCloudNow();
-      else updateSyncPill('synced', 'Synced ✓');
-    }
+
+    // Subsequent real-time updates (e.g. edits from another device)
+    if (cloud && cloudTs > localTs) adoptCloud(cloud);
+    else updateSyncPill('synced', 'Synced ✓');
   }, err => {
     console.warn('Cloud sync error', err);
     updateSyncPill('off', 'Sync error');
@@ -2820,10 +2841,12 @@ function startCloudSync(uid) {
 
 function stopCloudSync() {
   if (_cloudUnsub) { _cloudUnsub(); _cloudUnsub = null; }
+  _initialCloudRead = false;
 }
 
 function queueCloudPush() {
   if (!_fbUser || _adoptingCloud) return;
+  if (!_initialCloudRead) return; // never write before reading the cloud once
   updateSyncPill('syncing', 'Saving…');
   if (_cloudPushTimer) clearTimeout(_cloudPushTimer);
   _cloudPushTimer = setTimeout(pushToCloudNow, 800);
