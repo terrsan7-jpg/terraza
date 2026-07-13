@@ -1729,14 +1729,14 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
     <div class="nav-item active" onclick="showPage('dashboard')" data-page="dashboard">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span> Dashboard
     </div>
-    <div class="nav-item" onclick="showPage('monthly')" data-page="monthly">
-      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg></span> Monthly Goals
-    </div>
     <div class="nav-item" onclick="showPage('todo')" data-page="todo">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="16" height="16" rx="2"/><path d="M7 13l3 3 7-7"/></svg></span> To Do
     </div>
     <div class="nav-item" onclick="showPage('weekly')" data-page="weekly">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span> Weekly Review
+    </div>
+    <div class="nav-item" onclick="showPage('monthly')" data-page="monthly">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg></span> Monthly Goals
     </div>
     <div class="nav-item" onclick="showPage('year')" data-page="year">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Year Overview
@@ -2423,14 +2423,14 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   <button class="bottom-nav-item active" onclick="showPage('dashboard')" data-bnav="dashboard">
     <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span>Home
   </button>
-  <button class="bottom-nav-item" onclick="showPage('monthly')" data-bnav="monthly">
-    <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg></span>Goals
-  </button>
   <button class="bottom-nav-item" onclick="showPage('todo')" data-bnav="todo">
     <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="16" height="16" rx="2"/><path d="M7 13l3 3 7-7"/></svg></span>To Do
   </button>
   <button class="bottom-nav-item" onclick="showPage('weekly')" data-bnav="weekly">
     <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Review
+  </button>
+  <button class="bottom-nav-item" onclick="showPage('monthly')" data-bnav="monthly">
+    <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg></span>Goals
   </button>
   <button class="bottom-nav-item" onclick="toggleMoreDrawer()" id="more-btn">
     <span class="bottom-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></svg></span>More
@@ -6506,7 +6506,7 @@ function installApp() {
 // SWIPE NAVIGATION
 // ═══════════════════════════════════════════
 (function () {
-  var SWIPE_PAGES = ['dashboard','monthly','todo','weekly','year','history','export'];
+  var SWIPE_PAGES = ['dashboard','todo','weekly','monthly','year','history','export'];
   var startX = 0, startY = 0, startTime = 0;
   var decided = false, isHoriz = false, active = false;
   var dotsTimer = null, dotsEl = null;
