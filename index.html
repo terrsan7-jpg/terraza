@@ -2250,6 +2250,16 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
           </div>
         </div>
 
+        <!-- CLOUD BACKUPS CARD -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">🗄️ Cloud Backups</div>
+          <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px;">
+            A snapshot of your data is saved automatically each day you use the app (the last 7 are kept). If anything ever goes wrong, restore from one here.
+          </p>
+          <button class="btn-secondary" onclick="loadBackupList()" style="padding:10px 18px;font-size:13px;">View backups</button>
+          <div id="backup-list" style="margin-top:12px;"></div>
+        </div>
+
         <!-- CATEGORY NAMES CARD -->
         <div class="card" style="margin-bottom:16px;">
           <div class="card-title">🏷️ Category Names</div>
@@ -2798,6 +2808,7 @@ function adoptCloud(cloud) {
   refreshAllViews();
   _adoptingCloud = false;
   updateSyncPill('synced', 'Synced ✓');
+  maybeBackup();
 }
 
 function startCloudSync(uid) {
@@ -2856,8 +2867,79 @@ function pushToCloudNow() {
   if (!_fbUser || !_fbDb) return;
   if (!appData._updatedAt) appData._updatedAt = Date.now();
   docRef(_fbUser.uid).set(appData)
-    .then(() => updateSyncPill('synced', 'Synced ✓'))
+    .then(() => { updateSyncPill('synced', 'Synced ✓'); maybeBackup(); })
     .catch(err => { console.warn('push failed', err); updateSyncPill('off', 'Sync error'); });
+}
+
+// ── DAILY BACKUPS ──
+// Keeps a rolling set of the last 7 daily snapshots so data can be
+// recovered if the main copy is ever wiped or corrupted.
+function backupCol(uid) {
+  return _fbDb.collection('users').doc(uid).collection('backups');
+}
+
+function _backupDateKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function maybeBackup() {
+  if (!_fbUser || !_fbDb) return;
+  if (_monthCount(appData) === 0) return; // never back up an empty copy
+  const today = _backupDateKey();
+  const flag = 'terraza_lastbackup';
+  if (localStorage.getItem(flag) === _fbUser.uid + '|' + today) return; // already done today
+  const copy = JSON.parse(JSON.stringify(appData));
+  copy._backupAt = Date.now();
+  backupCol(_fbUser.uid).doc(today).set(copy)
+    .then(() => { localStorage.setItem(flag, _fbUser.uid + '|' + today); pruneBackups(7); })
+    .catch(err => console.warn('backup failed', err));
+}
+
+function pruneBackups(keep) {
+  if (!_fbUser) return;
+  backupCol(_fbUser.uid).get().then(snap => {
+    const ids = snap.docs.map(d => d.id).sort().reverse(); // newest date first
+    ids.slice(keep).forEach(id => backupCol(_fbUser.uid).doc(id).delete().catch(()=>{}));
+  }).catch(()=>{});
+}
+
+function loadBackupList() {
+  const el = document.getElementById('backup-list');
+  if (!el) return;
+  if (!_fbUser) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;">Sign in to Cloud Sync first to see backups.</div>'; return; }
+  el.innerHTML = '<div style="color:var(--muted);font-size:13px;">Loading…</div>';
+  backupCol(_fbUser.uid).get().then(snap => {
+    const docs = snap.docs.map(d => ({ id: d.id, data: d.data() })).sort((a,b) => b.id.localeCompare(a.id));
+    if (!docs.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px;">No backups yet — one is saved automatically each day you use the app.</div>';
+      return;
+    }
+    el.innerHTML = docs.map(d => {
+      const months = d.data && d.data.months ? Object.keys(d.data.months).length : 0;
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--dark);">${d.id}</div>
+          <div style="font-size:11px;color:var(--muted);">${months} month${months!==1?'s':''}</div>
+        </div>
+        <button class="btn-secondary" style="padding:7px 14px;font-size:12px;" onclick="restoreBackup('${d.id}')">Restore</button>
+      </div>`;
+    }).join('');
+  }).catch(() => { el.innerHTML = '<div style="color:var(--red);font-size:13px;">Could not load backups.</div>'; });
+}
+
+function restoreBackup(id) {
+  if (!_fbUser) return;
+  if (!confirm('Restore your data from the backup dated ' + id + '?\n\nThis replaces your current data on all your devices with this backup.')) return;
+  backupCol(_fbUser.uid).doc(id).get().then(doc => {
+    if (!doc.exists) { showToast('Backup not found'); return; }
+    const data = doc.data();
+    delete data._backupAt;
+    data._updatedAt = Date.now(); // make it the newest so it propagates to all devices
+    adoptCloud(data);
+    pushToCloudNow();
+    showToast('Restored from ' + id + ' ✓');
+  }).catch(() => showToast('Restore failed'));
 }
 
 function refreshAllViews() {
