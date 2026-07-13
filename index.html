@@ -107,10 +107,6 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   html.light .nav-item:hover { color: var(--text-mid); background: var(--accent-light); }
   html.light .nav-item.active { color: var(--gold); border-left-color: var(--gold); background: var(--accent-light); }
   html.light .nav-section-label { color: var(--muted); }
-  html.light .logo-t { color: var(--dark); }
-  html.light .logo-frame { border-color: var(--accent-mid); background: var(--accent-light); }
-  html.light .logo-sub { color: var(--gold); opacity: 0.7; }
-  html.light .logo-t span:first-child { border-right-color: var(--border-mid); }
   html.light .month-selector label { color: var(--muted); }
   html.light .month-selector select { background: var(--surface-2); border-color: var(--border); color: var(--dark); }
   html.light .month-selector select option { background: var(--surface-2); color: var(--dark); }
@@ -171,23 +167,21 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
     margin-bottom: 14px;
     overflow: hidden;
   }
-  .logo-t {
-    font-family: var(--font-display);
-    font-size: 15px;
-    font-weight: 800;
-    color: #fff;
-    display: flex;
-    align-items: baseline;
-    gap: 2px;
-    white-space: nowrap;
+  .logo-row { display: flex; align-items: center; gap: 10px; }
+  .logo-badge {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--gold), var(--brown-light));
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 3px 10px var(--glow);
   }
-  .logo-t span:first-child {
-    border-right: 2px solid rgba(255,255,255,0.4);
-    padding-right: 4px;
-    margin-right: 2px;
+  .logo-badge svg { width: 20px; height: 20px; display: block; }
+  .logo-word {
+    font-family: var(--font-body);
+    font-size: 17px; font-weight: 800;
+    letter-spacing: -0.02em; color: var(--dark);
+    line-height: 1;
   }
-  .logo-frame { display: block; border: 1.5px solid var(--accent-mid); border-radius: 8px; padding: 4px 8px 4px 6px; margin-bottom: 6px; background: var(--accent-light); width: fit-content; max-width: 100%; overflow: hidden; }
-  .logo-sub { font-size: 9px; letter-spacing: 0.2em; color: var(--gold); opacity: 0.7; margin-top: 0; text-transform: uppercase; padding-left: 2px; }
+  .logo-sub { font-size: 8.5px; letter-spacing: 0.18em; color: var(--muted); margin-top: 3px; text-transform: uppercase; }
 
   .nav-item {
     display: flex;
@@ -1719,10 +1713,19 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="logo">
-      <div class="logo-frame">
-        <div class="logo-t"><span>T</span><span>ERRAZA</span></div>
+      <div class="logo-row">
+        <div class="logo-badge">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="15.5" width="16" height="3" rx="1.5" fill="#fff"/>
+            <rect x="7" y="10.5" width="13" height="3" rx="1.5" fill="#fff" opacity="0.85"/>
+            <rect x="10" y="5.5" width="10" height="3" rx="1.5" fill="#fff" opacity="0.7"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-word">Terraza</div>
+          <div class="logo-sub">Goal Tracker</div>
+        </div>
       </div>
-      <div class="logo-sub">Goal Tracker</div>
     </div>
 
     <div class="nav-section-label">Navigate</div>
