@@ -5358,7 +5358,15 @@ function toggleGoalDay(cat, itemIdx, dayIdx) {
 })();
 
 function handleWeekGoalKey(e, cat, idx) {
-  if (e.key === 'Enter') { e.preventDefault(); addWeekGoalItem(cat); }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    // Persist what was just typed BEFORE re-rendering the list, otherwise
+    // the re-render reads the (still-empty) data model and erases it.
+    updateWeekGoalText(cat, idx, e.target.value);
+    // Don't add another empty row if this one is blank
+    if (!e.target.value.trim()) { e.target.blur(); return; }
+    addWeekGoalItem(cat);
+  }
 }
 
 // ── API Key management ──
