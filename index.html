@@ -2917,10 +2917,21 @@ function loadBackupList() {
     }
     el.innerHTML = docs.map(d => {
       const months = d.data && d.data.months ? Object.keys(d.data.months).length : 0;
+      // Count total weekly goals across every month/week so a pre-erasure
+      // backup is easy to spot.
+      let weeklyGoals = 0;
+      try {
+        Object.values(d.data.months || {}).forEach(mo => {
+          (mo.weeks || []).forEach(w => {
+            const gi = w && w.goalItems;
+            if (gi) Object.values(gi).forEach(arr => { (arr || []).forEach(g => { if (g && g.text && g.text.trim()) weeklyGoals++; }); });
+          });
+        });
+      } catch (e) {}
       return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
         <div>
           <div style="font-size:13px;font-weight:600;color:var(--dark);">${d.id}</div>
-          <div style="font-size:11px;color:var(--muted);">${months} month${months!==1?'s':''}</div>
+          <div style="font-size:11px;color:var(--muted);">${months} month${months!==1?'s':''} · ${weeklyGoals} weekly goal${weeklyGoals!==1?'s':''}</div>
         </div>
         <button class="btn-secondary" style="padding:7px 14px;font-size:12px;" onclick="restoreBackup('${d.id}')">Restore</button>
       </div>`;
@@ -4949,8 +4960,17 @@ function autoSaveWeekReview() {
   if (domWeekIdx !== idx) return;
   if (!m.weeks[idx]) m.weeks[idx] = {};
 
-  // Save goal items from DOM
-  const goalItems = getWeekGoalItems();
+  // Save goal items from DOM — but NEVER let an empty DOM read wipe existing
+  // saved goals. If a category reads empty from the DOM yet had real saved
+  // goals, keep the saved ones (guards against a stale/blank render erasing data).
+  const domGoals = getWeekGoalItems();
+  const savedGoals = m.weeks[idx].goalItems || {};
+  const goalItems = {};
+  ['health','personal','relationships','finance'].forEach(cat => {
+    const domArr = domGoals[cat] || [];
+    const savedArr = (savedGoals[cat] || []).filter(g => g && g.text && g.text.trim());
+    goalItems[cat] = (domArr.length === 0 && savedArr.length > 0) ? savedGoals[cat] : domArr;
+  });
   m.weeks[idx].goalItems = goalItems;
 
   // Save text fields only if they exist
