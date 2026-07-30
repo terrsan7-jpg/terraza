@@ -4803,6 +4803,7 @@ function renderGoalList(type, goals) {
       </div>
       <input type="text" value="${escHtml(g.text)}" placeholder="Enter goal..."
         class="${g.done ? 'done-text' : ''}"
+        oninput="updateGoal('${type}', ${i}, this.value)"
         onchange="updateGoal('${type}', ${i}, this.value)">
       <button class="btn-remove" onclick="removeGoal('${type}', ${i})">×</button>
     </div>
@@ -5111,6 +5112,7 @@ function renderWeekGoalList(cat, items) {
         </div>
         <input class="wg-input ${item.done ? 'wg-done' : ''}" value="${escHtml(item.text)}"
           placeholder="Enter goal..."
+          oninput="updateWeekGoalText('${cat}', ${i}, this.value)"
           onchange="updateWeekGoalText('${cat}', ${i}, this.value)"
           onkeydown="handleWeekGoalKey(event, '${cat}', ${i})">
         <button class="btn-remove" onclick="removeWeekGoalItem('${cat}', ${i})">×</button>
