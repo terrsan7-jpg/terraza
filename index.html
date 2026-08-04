@@ -1619,6 +1619,33 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   .sync-pill.syncing .sync-pill-icon { animation: syncSpin 1s linear infinite; display:inline-block; }
   @keyframes syncSpin { to { transform: rotate(360deg); } }
 
+  /* ── MOBILE SYNC INDICATOR ── */
+  .mobile-sync-btn {
+    display: none; flex-shrink: 0;
+    width: 34px; height: 34px; border-radius: 9px;
+    align-items: center; justify-content: center;
+    background: var(--surface-2); border: 1px solid var(--border);
+    font-size: 15px; cursor: pointer; line-height: 1;
+    color: var(--muted); font-family: var(--font-body);
+    transition: all 0.15s;
+  }
+  .mobile-sync-btn.synced { color: var(--green); border-color: rgba(92,138,79,0.45); }
+  .mobile-sync-btn.signedout { color: var(--red); border-color: rgba(184,90,71,0.5); }
+  .mobile-sync-btn.syncing #mobile-sync-icon { animation: syncSpin 1s linear infinite; display:inline-block; }
+  #sync-warning-bar {
+    display: none;
+    background: rgba(184,90,71,0.14);
+    border-bottom: 1px solid rgba(184,90,71,0.35);
+    color: var(--red);
+    font-size: 11.5px; font-weight: 600;
+    padding: 8px 14px; text-align: center;
+    cursor: pointer; line-height: 1.4;
+  }
+  @media (max-width: 768px) {
+    .mobile-sync-btn { display: flex; }
+    #sync-warning-bar.show { display: block; }
+  }
+
   /* ── BOTTOM NAV DARK ── */
   .bottom-nav { background: var(--panel); border-top: 1px solid rgba(255,255,255,0.04); }
   .bottom-nav-item { color: #444; }
@@ -1709,6 +1736,13 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   <div class="mobile-month-bar">
     <label>Month</label>
     <select id="mobile-month-select" onchange="switchMonth(this.value)"></select>
+    <button class="mobile-sync-btn" id="mobile-sync-btn" onclick="handleSyncClick()" title="Cloud sync">
+      <span id="mobile-sync-icon">☁</span>
+    </button>
+  </div>
+  <!-- Shown on mobile when signed out, so sync status is never invisible -->
+  <div id="sync-warning-bar" onclick="handleSyncClick()">
+    ⚠ Not syncing — tap to sign in so your data is saved to the cloud
   </div>
   <!-- SIDEBAR -->
   <aside class="sidebar">
@@ -2989,12 +3023,28 @@ function updateSyncPill(state, text) {
   const pill = document.getElementById('sync-pill');
   const icon = document.getElementById('sync-pill-icon');
   const label = document.getElementById('sync-pill-label');
-  if (!pill) return;
-  pill.classList.remove('synced', 'syncing');
-  if (state === 'synced') { pill.classList.add('synced'); if (icon) icon.textContent = '☁'; }
-  else if (state === 'syncing') { pill.classList.add('syncing'); if (icon) icon.textContent = '↻'; }
-  else { if (icon) icon.textContent = '☁'; }
-  if (label) label.textContent = text;
+  if (pill) {
+    pill.classList.remove('synced', 'syncing');
+    if (state === 'synced') { pill.classList.add('synced'); if (icon) icon.textContent = '☁'; }
+    else if (state === 'syncing') { pill.classList.add('syncing'); if (icon) icon.textContent = '↻'; }
+    else { if (icon) icon.textContent = '☁'; }
+    if (label) label.textContent = text;
+  }
+
+  // Mirror status on mobile, where the sidebar (and its pill) is hidden
+  const mBtn = document.getElementById('mobile-sync-btn');
+  const mIcon = document.getElementById('mobile-sync-icon');
+  const warn = document.getElementById('sync-warning-bar');
+  const signedOut = !_fbUser;
+  if (mBtn) {
+    mBtn.classList.remove('synced', 'syncing', 'signedout');
+    if (state === 'syncing') { mBtn.classList.add('syncing'); if (mIcon) mIcon.textContent = '↻'; }
+    else if (state === 'synced') { mBtn.classList.add('synced'); if (mIcon) mIcon.textContent = '☁'; }
+    else if (signedOut) { mBtn.classList.add('signedout'); if (mIcon) mIcon.textContent = '⚠'; }
+    else { if (mIcon) mIcon.textContent = '☁'; }
+  }
+  // Loud banner only when signed out AND sync is actually available
+  if (warn) warn.classList.toggle('show', signedOut && firebaseConfigured());
 }
 
 function handleSyncClick() {
@@ -3120,52 +3170,18 @@ function ensureMonth(key, name, year) {
 
 let appData = loadData();
 
-// Seed all 2026 months if empty
-// ── Purge any auto-seeded empty months from old versions ──
-// A month is considered "empty" if it has no goals, no weekly data and no todo entries
-(function purgeEmptyMonths() {
-  let changed = false;
-  const nowY = new Date().getFullYear();
-  const nowM = MONTH_NAMES[new Date().getMonth()];
-  const activeKey = appData.activeMonth;
-
-  Object.keys(appData.months).forEach(key => {
-    const m = appData.months[key];
-    if (!m) return;
-    // Never remove a month that has real data — but DO purge even the active month if empty
-    // Check if anything meaningful exists
-    const hasGoals = (m.primaryGoals || []).some(g => g && g.text) ||
-                     (m.secondaryGoals || []).some(g => g && g.text);
-    const hasWeeks = (m.weeks || []).some(w => {
-      if (!w) return false;
-      if (w.thoughts && w.thoughts.trim()) return true;
-      if (w.actions && w.actions.trim()) return true;
-      if (w.well && Object.values(w.well).some(v => v && v.trim())) return true;
-      if (w.goalItems && Object.values(w.goalItems).some(a => (a||[]).some(g => g && g.text))) return true;
-      return false;
-    });
-    const hasTodo = m.todo && Object.values(m.todo).some(week =>
-      week && typeof week === 'object' && Object.values(week).some(day =>
-        day && ((day.extra||[]).some(t => t.text) ||
-                Object.keys(day.linked||{}).length > 0 ||
-                (day.well && Object.values(day.well).some(v => v && v.trim())) ||
-                (day.reflection && day.reflection.trim()) ||
-                (day.gratitude && day.gratitude.trim()))
-      )
-    );
-    if (!hasGoals && !hasWeeks && !hasTodo) {
-      delete appData.months[key];
-      changed = true;
-    }
-  });
-
-  // If active month was deleted or is missing, clear it — user will add one
-  if (!appData.activeMonth || !appData.months[appData.activeMonth]) {
-    appData.activeMonth = null;
-    changed = true;
+// ── Months are NEVER auto-deleted ──
+// A previous version purged months it judged "empty" on every load. That check
+// ignored day ratings, sick/vacation flags, special days and "didn't go well"
+// entries, so real months were destroyed and the deletion synced to every
+// device. Months are only removed when the user explicitly clears them.
+// We only repair a dangling activeMonth pointer here.
+(function repairActiveMonth() {
+  if (appData.activeMonth && !appData.months[appData.activeMonth]) {
+    const keys = Object.keys(appData.months);
+    appData.activeMonth = keys.length ? keys[keys.length - 1] : null;
+    saveData();
   }
-
-  if (changed) saveData();
 })();
 
 // No auto-seeding — user adds their first month manually via "+ New Month"
