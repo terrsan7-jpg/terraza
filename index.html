@@ -2290,7 +2290,10 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
           <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px;">
             A snapshot of your data is saved automatically each day you use the app (the last 30 days are kept). If anything ever goes wrong, restore from one here.
           </p>
-          <button class="btn-secondary" onclick="loadBackupList()" style="padding:10px 18px;font-size:13px;">View backups</button>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn-brown" onclick="backupNow()" style="padding:10px 18px;font-size:13px;">Back up now</button>
+            <button class="btn-secondary" onclick="loadBackupList()" style="padding:10px 18px;font-size:13px;">View backups</button>
+          </div>
           <div id="backup-list" style="margin-top:12px;"></div>
         </div>
 
@@ -2917,17 +2920,36 @@ function _backupDateKey() {
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
-function maybeBackup() {
-  if (!_fbUser || !_fbDb) return;
-  if (_monthCount(appData) === 0) return; // never back up an empty copy
+// Today's backup is REWRITTEN as you work, so it always holds your latest
+// state. (It previously ran only once per day, at the first sync, so it
+// froze an early-morning snapshot and missed everything done afterwards.)
+// Writes are throttled so we don't hammer Firestore.
+let _lastBackupWrite = 0;
+const BACKUP_THROTTLE_MS = 3 * 60 * 1000; // at most one write every 3 min
+
+function maybeBackup(force) {
+  if (!_fbUser || !_fbDb) return Promise.resolve(false);
+  if (_monthCount(appData) === 0) return Promise.resolve(false); // never back up an empty copy
+  const now = Date.now();
+  if (!force && now - _lastBackupWrite < BACKUP_THROTTLE_MS) return Promise.resolve(false);
+  _lastBackupWrite = now;
   const today = _backupDateKey();
-  const flag = 'terraza_lastbackup';
-  if (localStorage.getItem(flag) === _fbUser.uid + '|' + today) return; // already done today
   const copy = JSON.parse(JSON.stringify(appData));
-  copy._backupAt = Date.now();
-  backupCol(_fbUser.uid).doc(today).set(copy)
-    .then(() => { localStorage.setItem(flag, _fbUser.uid + '|' + today); pruneBackups(30); })
-    .catch(err => console.warn('backup failed', err));
+  copy._backupAt = now;
+  return backupCol(_fbUser.uid).doc(today).set(copy)
+    .then(() => { pruneBackups(30); return true; })
+    .catch(err => { console.warn('backup failed', err); _lastBackupWrite = 0; return false; });
+}
+
+// Manual "Back up now" from Settings
+function backupNow() {
+  if (!_fbUser) { showToast('Sign in to Cloud Sync first'); return; }
+  if (_monthCount(appData) === 0) { showToast('Nothing to back up yet'); return; }
+  showToast('Backing up…');
+  maybeBackup(true).then(ok => {
+    showToast(ok ? 'Backed up ✓' : 'Backup failed');
+    loadBackupList();
+  });
 }
 
 function pruneBackups(keep) {
@@ -2962,9 +2984,16 @@ function loadBackupList() {
           });
         });
       } catch (e) {}
+      // Show the time the snapshot was taken so it's clear how current it is
+      let taken = '';
+      try {
+        if (d.data && d.data._backupAt) {
+          taken = ' · ' + new Date(d.data._backupAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        }
+      } catch (e) {}
       return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
         <div>
-          <div style="font-size:13px;font-weight:600;color:var(--dark);">${d.id}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--dark);">${d.id}${taken}</div>
           <div style="font-size:11px;color:var(--muted);">${months} month${months!==1?'s':''} · ${weeklyGoals} weekly goal${weeklyGoals!==1?'s':''}</div>
         </div>
         <button class="btn-secondary" style="padding:7px 14px;font-size:12px;" onclick="restoreBackup('${d.id}')">Restore</button>
@@ -6628,7 +6657,13 @@ function scheduleNotifications() {
 
 // Re-check when the tab regains focus or becomes visible again
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) checkAllReminders();
+  if (!document.hidden) {
+    checkAllReminders();
+  } else {
+    // App is being backgrounded/closed — capture the latest state now so the
+    // day's final work is always in the backup, not just an early snapshot.
+    if (typeof maybeBackup === 'function') maybeBackup(true);
+  }
 });
 window.addEventListener('focus', checkAllReminders);
 
