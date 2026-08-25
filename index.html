@@ -1619,6 +1619,35 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
   .sync-pill.syncing .sync-pill-icon { animation: syncSpin 1s linear infinite; display:inline-block; }
   @keyframes syncSpin { to { transform: rotate(360deg); } }
 
+  /* ── IMPORT GOALS FROM IMAGE ── */
+  .goal-import-bar {
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap; margin-bottom: 12px;
+  }
+  .goal-import-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--accent-light); color: var(--gold);
+    border: 1px dashed var(--accent-mid); border-radius: 10px;
+    padding: 9px 14px; font-family: var(--font-body);
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  .goal-import-btn:hover { background: var(--accent-mid); border-style: solid; }
+  .goal-import-btn:disabled { opacity: 0.6; cursor: default; }
+  .goal-import-hint { font-size: 11px; color: var(--muted); line-height: 1.4; flex: 1; min-width: 160px; }
+  .goal-import-status {
+    display: none; font-size: 12px; padding: 9px 12px;
+    border-radius: 8px; margin-bottom: 12px; line-height: 1.5;
+  }
+  .goal-import-status.show { display: block; }
+  .goal-import-status.working { background: var(--accent-light); color: var(--gold); }
+  .goal-import-status.ok { background: rgba(92,138,79,0.14); color: var(--green); }
+  .goal-import-status.err { background: rgba(184,90,71,0.14); color: var(--red); }
+  @media (max-width: 480px) {
+    .goal-import-hint { display: none; }
+    .goal-import-btn { width: 100%; justify-content: center; }
+  }
+
   /* ── MOBILE SYNC INDICATOR ── */
   .mobile-sync-btn {
     display: none; flex-shrink: 0;
@@ -2084,6 +2113,16 @@ document.write('<link rel="manifest" href="' + manifestURL + '">');
 
         <div class="wg-form-collapsible" id="wg-form-collapsible">
           <div style="margin-bottom:20px; padding-top:4px;">
+            <!-- Import goals from a photo/screenshot (e.g. a Canva goals board) -->
+            <div class="goal-import-bar">
+              <button class="goal-import-btn" onclick="document.getElementById('goal-image-input').click()">
+                <span style="font-size:14px;">📷</span> Import goals from image
+              </button>
+              <span class="goal-import-hint">Take a photo or upload your goals board — AI fills them in by category</span>
+              <input type="file" id="goal-image-input" accept="image/*" style="display:none"
+                onchange="handleGoalImage(event)">
+            </div>
+            <div id="goal-import-status" class="goal-import-status"></div>
             <div class="review-grid">
               <div class="review-section">
                 <div class="review-section-head"><span class="cat-tag cat-health">Health</span></div>
@@ -5472,6 +5511,206 @@ function openApiKeyModal() {
 }
 function closeApiKeyModal() {
   document.getElementById('api-key-modal').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════
+// IMPORT WEEKLY GOALS FROM AN IMAGE
+// Reads a photo/screenshot of a goals board and fills in the weekly goals.
+// ═══════════════════════════════════════════
+
+function _goalImportStatus(msg, kind) {
+  const el = document.getElementById('goal-import-status');
+  if (!el) return;
+  el.className = 'goal-import-status show ' + (kind || 'working');
+  el.textContent = msg;
+}
+function _goalImportClear(delay) {
+  setTimeout(() => {
+    const el = document.getElementById('goal-import-status');
+    if (el) el.className = 'goal-import-status';
+  }, delay || 4000);
+}
+
+// Downscale so the upload stays small and fast; returns {b64, mime}
+function _imageToBase64(file, maxDim) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read that image'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('That file is not a readable image'));
+      img.onload = () => {
+        let { width: w, height: h } = img;
+        const scale = Math.min(1, maxDim / Math.max(w, h));
+        w = Math.round(w * scale); h = Math.round(h * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        resolve({ b64: dataUrl.split(',')[1], mime: 'image/jpeg' });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function _goalImportPrompt() {
+  return `You are reading a photo or screenshot of someone's weekly goals board.
+
+Extract every individual goal/task you can see and sort each one into exactly one of these four categories:
+- "health"        (shown as: ${catLabel('health')})
+- "personal"      (shown as: ${catLabel('personal')})
+- "relationships" (shown as: ${catLabel('relationships')})
+- "finance"       (shown as: ${catLabel('finance')})
+
+Rules:
+- Use the image's own column/section headings to decide the category. Map similar wording (e.g. "Personal Development" -> personal, "Finance/Career" -> finance, "Fitness" -> health).
+- Copy each goal's text as written. Keep it short; do not invent, merge, or add goals.
+- Ignore titles like "GOALS", decorations, page numbers and empty bullets.
+- If a category has no goals, return an empty array for it.
+
+Respond with ONLY raw JSON, no markdown fences, in exactly this shape:
+{"health":["..."],"personal":["..."],"relationships":["..."],"finance":["..."]}`;
+}
+
+async function _visionExtractGoals(b64, mime) {
+  const apiKey = getApiKey();
+  const provider = getApiProvider();
+  const prompt = _goalImportPrompt();
+  let raw = '';
+
+  if (provider === 'anthropic') {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1200,
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: mime, data: b64 } },
+          { type: 'text', text: prompt }
+        ]}]
+      })
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error?.message || 'Anthropic API error ' + resp.status);
+    }
+    const data = await resp.json();
+    raw = data.content?.[0]?.text || '';
+  } else {
+    const model = 'gemini-2.5-flash';
+    let resp;
+    try {
+      resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [
+              { inline_data: { mime_type: mime, data: b64 } },
+              { text: prompt }
+            ]}],
+            generationConfig: { maxOutputTokens: 1200, temperature: 0.1 }
+          })
+        }
+      );
+    } catch (netErr) {
+      throw new Error('Cannot reach Gemini — check your key or connection');
+    }
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      if (resp.status === 403 || resp.status === 401) throw new Error('Gemini key rejected — check aistudio.google.com');
+      throw new Error(err.error?.message || 'Gemini API error ' + resp.status);
+    }
+    const gdata = await resp.json();
+    raw = gdata.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  }
+
+  const clean = raw.replace(/```json|```/g, '').trim();
+  const start = clean.indexOf('{'), end = clean.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('Could not read goals from that image');
+  return JSON.parse(clean.slice(start, end + 1));
+}
+
+async function handleGoalImage(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = ''; // allow re-picking the same file later
+  if (!file) return;
+
+  const m = getActiveMonth();
+  if (!m) { _goalImportStatus('Create a month first.', 'err'); _goalImportClear(); return; }
+  if (!getApiKey()) {
+    _goalImportStatus('Add an AI key first (tap the 🔑 button below) — then try again.', 'err');
+    _goalImportClear(6000);
+    openApiKeyModal();
+    return;
+  }
+
+  const btn = document.querySelector('.goal-import-btn');
+  if (btn) btn.disabled = true;
+
+  try {
+    _goalImportStatus('Reading your image…');
+    const { b64, mime } = await _imageToBase64(file, 1400);
+
+    _goalImportStatus('Asking AI to pull out your goals…');
+    const result = await _visionExtractGoals(b64, mime);
+
+    // Merge into the CURRENT week — never overwrite what's already there
+    const wi = currentWeekTab;
+    if (!m.weeks[wi]) m.weeks[wi] = {};
+    if (!m.weeks[wi].goalItems) m.weeks[wi].goalItems = {};
+    const CATS = ['health','personal','relationships','finance'];
+    let added = 0, skipped = 0;
+
+    CATS.forEach(cat => {
+      const existing = (m.weeks[wi].goalItems[cat] || []).filter(g => g && g.text && g.text.trim());
+      const seen = existing.map(g => g.text.trim().toLowerCase());
+      const incoming = Array.isArray(result[cat]) ? result[cat] : [];
+      incoming.forEach(t => {
+        const text = String(t || '').trim();
+        if (!text) return;
+        if (seen.includes(text.toLowerCase())) { skipped++; return; }
+        // days:[] so the user picks which days to do it
+        existing.push({ text, done: false, days: [] });
+        seen.push(text.toLowerCase());
+        added++;
+      });
+      m.weeks[wi].goalItems[cat] = existing;
+    });
+
+    if (!added) {
+      _goalImportStatus(skipped ? 'Those goals are already on this week.' : 'No goals found in that image — try a clearer photo.', 'err');
+      _goalImportClear(6000);
+      return;
+    }
+
+    saveData();
+    renderWeeklyForm(wi);
+    // Re-open the goals form so the imported goals are visible
+    const panel = document.getElementById('wg-form-collapsible');
+    const tbtn = document.getElementById('wg-form-toggle-btn');
+    if (panel && !panel.classList.contains('open')) { panel.classList.add('open'); if (tbtn) tbtn.classList.add('open'); }
+
+    _goalImportStatus(`Added ${added} goal${added !== 1 ? 's' : ''} to Week ${wi + 1}${skipped ? ` (${skipped} already there)` : ''}. Now tap the day dots to schedule them.`, 'ok');
+    _goalImportClear(8000);
+    showToast(`${added} goal${added !== 1 ? 's' : ''} imported ✓`);
+
+  } catch (err) {
+    console.warn('goal image import failed', err);
+    _goalImportStatus(err.message || 'Could not import goals from that image.', 'err');
+    _goalImportClear(7000);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function aiCompileWeeklyReview() {
