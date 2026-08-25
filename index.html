@@ -5609,7 +5609,11 @@ async function _visionExtractGoals(b64, mime) {
       throw new Error(err.error?.message || 'Anthropic API error ' + resp.status);
     }
     const data = await resp.json();
-    raw = data.content?.[0]?.text || '';
+    // Join every text block — some responses split across parts
+    raw = (data.content || []).filter(c => c && c.type === 'text').map(c => c.text).join('\n').trim();
+    if (!raw && data.stop_reason === 'max_tokens') {
+      throw new Error('The AI ran out of room reading that image. Try a tighter crop of just the goals.');
+    }
   } else {
     const model = GEMINI_MODEL;
     let resp;
@@ -5624,7 +5628,13 @@ async function _visionExtractGoals(b64, mime) {
               { inline_data: { mime_type: mime, data: b64 } },
               { text: prompt }
             ]}],
-            generationConfig: { maxOutputTokens: 1200, temperature: 0.1 }
+            generationConfig: {
+              // Gemini 3.x reasons before answering and that reasoning draws
+              // from this budget — too small and it returns empty text.
+              maxOutputTokens: 8192,
+              temperature: 0.1,
+              responseMimeType: 'application/json'
+            }
           })
         }
       );
@@ -5637,12 +5647,28 @@ async function _visionExtractGoals(b64, mime) {
       throw new Error(err.error?.message || 'Gemini API error ' + resp.status);
     }
     const gdata = await resp.json();
-    raw = gdata.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const cand = gdata.candidates && gdata.candidates[0];
+    // Collect text from ALL parts, skipping any "thought" parts
+    raw = ((cand && cand.content && cand.content.parts) || [])
+      .filter(p => p && typeof p.text === 'string' && !p.thought)
+      .map(p => p.text).join('\n').trim();
+
+    if (!raw) {
+      const reason = (cand && cand.finishReason) || '';
+      const blocked = gdata.promptFeedback && gdata.promptFeedback.blockReason;
+      if (blocked) throw new Error('Gemini blocked that image (' + blocked + '). Try a different screenshot.');
+      if (reason === 'MAX_TOKENS') throw new Error('The AI ran out of room reading that image. Try a tighter crop of just the goals.');
+      if (reason === 'SAFETY' || reason === 'PROHIBITED_CONTENT') throw new Error('Gemini declined to read that image. Try a cropped screenshot of just the goal text.');
+      throw new Error('The AI returned nothing' + (reason ? ' (' + reason + ')' : '') + '. Try again or use a clearer image.');
+    }
   }
 
   const clean = raw.replace(/```json|```/g, '').trim();
   const start = clean.indexOf('{'), end = clean.lastIndexOf('}');
-  if (start === -1 || end === -1) throw new Error('Could not read goals from that image');
+  if (start === -1 || end === -1) {
+    console.warn('Goal import — unparseable AI response:', raw);
+    throw new Error('AI replied but not with goals. Response started: "' + clean.slice(0, 80) + '"');
+  }
   return JSON.parse(clean.slice(start, end + 1));
 }
 
