@@ -5475,6 +5475,12 @@ function handleWeekGoalKey(e, cat, idx) {
   }
 }
 
+// ── AI model names (single source of truth — update here only) ──
+// Google retires older Gemini models to new users, which breaks every call
+// site at once, so keep these centralised rather than hardcoded inline.
+const GEMINI_MODEL = 'gemini-3.6-flash';
+const ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
+
 // ── API Key management ──
 function getApiKey() {
   return localStorage.getItem('terraza_api_key') || '';
@@ -5590,7 +5596,7 @@ async function _visionExtractGoals(b64, mime) {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: ANTHROPIC_MODEL,
         max_tokens: 1200,
         messages: [{ role: 'user', content: [
           { type: 'image', source: { type: 'base64', media_type: mime, data: b64 } },
@@ -5605,7 +5611,7 @@ async function _visionExtractGoals(b64, mime) {
     const data = await resp.json();
     raw = data.content?.[0]?.text || '';
   } else {
-    const model = 'gemini-2.5-flash';
+    const model = GEMINI_MODEL;
     let resp;
     try {
       resp = await fetch(
@@ -5855,7 +5861,7 @@ async function aiCompileWeeklyReview() {
           'anthropic-dangerous-direct-browser-access': 'true'
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: ANTHROPIC_MODEL,
           max_tokens: 1500,
           messages: [{ role: 'user', content: prompt }]
         })
@@ -5869,7 +5875,7 @@ async function aiCompileWeeklyReview() {
 
     } else {
       // Gemini v1beta — browser CORS compatible
-      const geminiModel = 'gemini-2.5-flash-lite';
+      const geminiModel = GEMINI_MODEL;
       let geminiResp;
       try {
         geminiResp = await fetch(
@@ -7330,7 +7336,7 @@ async function aiMonthlyReview() {
             'anthropic-dangerous-direct-browser-access': 'true'
           },
           body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
+            model: ANTHROPIC_MODEL,
             max_tokens: 2500,
             messages: [{ role: 'user', content: prompt }]
           })
@@ -7347,7 +7353,7 @@ async function aiMonthlyReview() {
       raw = data.content?.[0]?.text || '';
 
     } else {
-      const geminiModel = 'gemini-2.5-flash-lite';
+      const geminiModel = GEMINI_MODEL;
       let geminiResp;
       try {
         geminiResp = await fetch(
